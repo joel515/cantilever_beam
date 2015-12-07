@@ -1,6 +1,10 @@
 Rails.application.routes.draw do
-  root 'beams#index'
-  get 'beams/new'
+  root             'static_pages#home'
+  get 'help'    => 'static_pages#help'
+  get 'contact' => 'static_pages#contact'
+  get 'about'   => 'static_pages#about'
+  get 'index'   => 'beams#index'
+  get 'create'  => 'beams#new'
   get 'beams/show'
   get 'beams/edit'
   get 'beams/results'
