@@ -1,4 +1,10 @@
 Rails.application.routes.draw do
+  root 'beams#index'
+  get 'beams/new'
+  get 'beams/show'
+  get 'beams/edit'
+  get 'beams/results'
+
   # The priority is based upon order of creation: first created -> highest priority.
   # See how all your routes lay out with "rake routes".
 
