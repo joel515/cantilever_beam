@@ -11,6 +11,23 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 0) do
+ActiveRecord::Schema.define(version: 20151208172822) do
+
+  create_table "beams", force: :cascade do |t|
+    t.string   "name"
+    t.float    "length"
+    t.float    "width"
+    t.float    "height"
+    t.float    "meshsize"
+    t.float    "modulus"
+    t.float    "poisson"
+    t.float    "density"
+    t.string   "material"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.float    "load"
+  end
+
+  add_index "beams", ["name"], name: "index_beams_on_name", unique: true
 
 end
