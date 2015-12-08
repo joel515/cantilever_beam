@@ -18,6 +18,13 @@ class BeamTest < ActiveSupport::TestCase
     assert_not @beam.valid?
   end
 
+  test "name should be unique" do
+    duplicate_beam = @beam.dup
+    duplicate_beam.name = @beam.name.upcase
+    @beam.save
+    assert_not duplicate_beam.valid?
+  end
+
   test "length should be number greater than 0" do
     @beam.length = nil
     assert_not @beam.valid?
