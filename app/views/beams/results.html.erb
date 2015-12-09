@@ -58,11 +58,11 @@
             <td><%= "%.3f" % @beam.d %> mm</td>
             <td>
               <% if @beam.d_error.abs <= 5 %>
-                <font color="green"><%= "%.2f" % @beam.d_error %>%</font>
+                <%= content_tag(:font, "%.2f" % @beam.d_error, color: "green") %>
               <% elsif @beam.d_error.abs <= 10 %>
-                <font color="orange"><%= "%.2f" % @beam.d_error %>%</font>
+                <%= content_tag(:font, "%.2f" % @beam.d_error, color: "orange") %>
               <% else %>
-                <font color="red"><%= "%.2f" % @beam.d_error %>%</font>
+                <%= content_tag(:font, "%.2f" % @beam.d_error, color: "red") %>
               <% end %>
             </td>
           </tr>
@@ -72,11 +72,11 @@
             <td><%= "%.3f" % @beam.sigma_max %> MPa</td>
             <td>
               <% if @beam.sigma_error.abs <= 5 %>
-                <font color="green"><%= "%.2f" % @beam.sigma_error %>%</font>
+                <%= content_tag(:font, "%.2f" % @beam.sigma_error, color: "green") %>
               <% elsif @beam.sigma_error.abs <= 10 %>
-                <font color="orange"><%= "%.2f" % @beam.sigma_error %>%</font>
+                <%= content_tag(:font, "%.2f" % @beam.sigma_error, color: "orange") %>
               <% else %>
-                <font color="red"><%= "%.2f" % @beam.sigma_error %>%</font>
+                <%= content_tag(:font, "%.2f" % @beam.sigma_error, color: "red") %>
               <% end %>
             </td>
           </tr>

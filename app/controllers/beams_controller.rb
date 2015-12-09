@@ -20,6 +20,7 @@ class BeamsController < ApplicationController
   def create
     @beam = Beam.new(beam_params)
     if @beam.save
+      flash[:success] = "Successfully created #{@beam.name}."
       redirect_to @beam
     else
       render 'new'
@@ -28,6 +29,7 @@ class BeamsController < ApplicationController
 
   def submit
     @beam.submit
+    flash[:success] = "Simulation for #{@beam.name} successful!"
     render 'results'
   end
 
