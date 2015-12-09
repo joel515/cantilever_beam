@@ -1,1 +1,37 @@
-# Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+steel:
+  name: Steel Test Beam
+  length: 1.0
+  width:  0.1
+  height: 0.05
+  material: Steel
+  modulus: 200.0e9
+  poisson: 0.29
+  density: 7600
+  meshsize: 0.01
+  load: 2000
+
+aluminum:
+  name: Aluminum Test Beam
+  length: 1.0
+  width:  0.1
+  height: 0.05
+  material: "Aluminum"
+  modulus: 69.0e9
+  poisson: 0.33
+  density: 2700
+  meshsize: meshsize
+  load: 2000
+
+<% 30.times do |n| %>
+beam_<%= n %>:
+  name: <%= "Beam #{n}" %>
+  length: 1.0
+  width:  0.1
+  height: 0.05
+  material: Steel
+  modulus: 200.0e9
+  poisson: 0.29
+  density: 7600
+  meshsize: 0.01
+  load: 2000
+<% end %>

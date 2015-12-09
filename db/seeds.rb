@@ -1,7 +1,75 @@
-# This file should contain all the record creation needed to seed the database with its default values.
-# The data can then be loaded with the rake db:seed (or created alongside the db with db:setup).
-#
-# Examples:
-#
-#   cities = City.create([{ name: 'Chicago' }, { name: 'Copenhagen' }])
-#   Mayor.create(name: 'Emanuel', city: cities.first)
+mesharray = [ 5.0, 10.0, 25.0, 50.0 ]
+
+mesharray.each do |n|
+  name = "Steel Beam #{n}mm"
+  meshsize = n.to_f / 1000
+  Beam.create!(name: name,
+               length: 1.0,
+               width:  0.1,
+               height: 0.05,
+               material: "Steel",
+               modulus: 200.0e9,
+               poisson: 0.29,
+               density: 7600,
+               meshsize: meshsize,
+               load: 2000)
+end
+
+mesharray.each do |n|
+  name = "Aluminum Beam #{n}mm"
+  meshsize = n.to_f / 1000
+  Beam.create!(name: name,
+               length: 1.0,
+               width:  0.1,
+               height: 0.05,
+               material: "Aluminum",
+               modulus: 69.0e9,
+               poisson: 0.33,
+               density: 2700,
+               meshsize: meshsize,
+               load: 2000)
+end
+
+mesharray.each do |n|
+  name = "Grey Cast Iron (25) Beam #{n}mm"
+  meshsize = n.to_f / 1000
+  Beam.create!(name: name,
+               length: 1.0,
+               width:  0.1,
+               height: 0.05,
+               material: "ASTM 25 Gray Cast Iron",
+               modulus: 90.5e9,
+               poisson: 0.29,
+               density: 7150,
+               meshsize: meshsize,
+               load: 2000)
+end
+
+mesharray.each do |n|
+  name = "Grey Cast Iron (60) Beam #{n}mm"
+  meshsize = n.to_f / 1000
+  Beam.create!(name: name,
+               length: 1.0,
+               width:  0.1,
+               height: 0.05,
+               material: "ASTM 60 Gray Cast Iron",
+               modulus: 151.5e9,
+               poisson: 0.29,
+               density: 7150,
+               meshsize: meshsize,
+               load: 2000)
+end
+
+99.times do |n|
+  name = "Example Beam #{n}"
+  Beam.create!(name: name,
+               length: 1.0,
+               width:  0.1,
+               height: 0.05,
+               material: "Steel",
+               modulus: 151.5e9,
+               poisson: 0.29,
+               density: 7150,
+               meshsize: 0.01,
+               load: 2000)
+end

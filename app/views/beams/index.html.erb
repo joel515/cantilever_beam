@@ -1,3 +1,33 @@
 <% provide(:title, "Beams") %>
-<h1>Beams#index</h1>
-<p>Find me in app/views/beams/index.html.erb</p>
+<h3>Beam list</h3>
+
+<%= will_paginate %>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>Id</th>
+      <th>Name</th>
+      <th>Status</th>
+      <th>Material</th>
+      <th>Load (N)</th>
+      <th>Mesh Size (mm)</th>
+      <th></th>
+    </tr>
+  </thead>
+  <% @beams.each do |beam| %>
+    <tr>
+      <td><%= beam.id %></td>
+      <td><%= link_to beam.name, beam %></td>
+      <td></td>
+      <td><%= beam.material %></td>
+      <td><%= beam.load %></td>
+      <td><%= beam.meshsize * 1000 %></td>
+      <td>
+        <%= link_to '<span class="glyphicon glyphicon-trash"></span>'.html_safe, beam, method: :delete, class: "btn btn-danger btn-xs", data: { confirm: "Are you sure you want to delete #{beam.name}?", toggle: 'tooltip', placement: 'top' }, title: "Delete #{beam.name}" %>
+      </td>
+    </tr>
+  <% end %>
+</table>
+
+<%= will_paginate %>

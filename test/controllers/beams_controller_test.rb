@@ -6,4 +6,9 @@ class BeamsControllerTest < ActionController::TestCase
     get :new
     assert_response :success
   end
+
+  # test "should redirect index when no beams exist" do
+  #   get :index
+  #   assert_redirected_to root_url
+  # end
 end

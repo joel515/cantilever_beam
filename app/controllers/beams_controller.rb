@@ -1,7 +1,12 @@
 class BeamsController < ApplicationController
-  before_action :set_beam, only: [:show, :submit, :results]
+  before_action :set_beam, only: [:show, :submit, :results, :edit, :update, :destroy]
 
   def index
+    if Beam.count > 0
+      @beams = Beam.paginate(page: params[:page])
+    else
+      redirect_to root_url
+    end
   end
 
   def new
@@ -31,6 +36,21 @@ class BeamsController < ApplicationController
     @beam.submit
     flash[:success] = "Simulation for #{@beam.name} successful!"
     render 'results'
+  end
+
+  def update
+    if @beam.update_attributes(beam_params)
+      flash[:success] = "Successully updated #{@beam.name}."
+      redirect_to @beam
+    else
+      render 'edit'
+    end
+  end
+
+  def destroy
+    @beam.destroy
+    flash[:success] = "Beam deleted."
+    redirect_to index_url
   end
 
   private
