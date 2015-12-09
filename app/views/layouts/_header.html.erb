@@ -1,10 +1,23 @@
-<header class="navbar navbar-fixed-top navbar-inverse">
+<header>
   <div class="container">
-    <%= link_to "Cantilever Beam", root_path, id: "logo" %>
-    <nav>
+    <nav class="navbar navbar-default navbar-fixed-top">
+      <ul class="nav navbar-header">
+        <li><%= link_to image_tag("mkei_logo_155x60.png", alt: "Milwaukee Institute Logo"), 'https://www.mkei.org/', id: "logo" %></li>
+      </ul>
+      <ul class="nav navbar-nav">
+        <li><%= link_to "Cantilever Beam", root_path, id: "app-title" %></li>
+      </ul>
       <ul class="nav navbar-nav navbar-right">
-        <li><%= link_to "My Beams", root_path %></li>
-        <li><%= link_to "New", create_path %></li>
+        <li>
+          <%= link_to root_path do %>
+            <span class="glyphicon glyphicon-list"></span> List
+          <% end %>
+        </li>
+        <li>
+          <%= link_to create_path do %>
+            <span class="glyphicon glyphicon-plus"></span> Create
+          <% end %>
+        </li>
       </ul>
     </nav>
   </div>

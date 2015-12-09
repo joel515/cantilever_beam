@@ -1,3 +1,69 @@
-<% provide(:title, "Beam") %>
-<h1>Beams#show</h1>
-<p>Find me in app/views/beams/show.html.erb</p>
+<% provide(:title, @beam.name) %>
+<h3><%= @beam.name %></h3>
+<div class="row">
+  <div class="col-md-3">
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <strong>Dimensions</strong>
+      </div>
+      <table class="table">
+        <tbody>
+          <tr><td>Length</td><td><%= @beam.length %> m</td></tr>
+          <tr><td>Width</td><td><%= @beam.width %> m</td></tr>
+          <tr><td>Height</td><td><%= @beam.height %> m</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <strong>Boundary Conditions</strong>
+      </div>
+      <table class="table">
+        <tbody>
+          <tr><td>Load</td><td><%= @beam.load %> N</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <strong>Material Properties</strong>
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Elastic Modulus (GPa)</th>
+            <th>Poisson's Ratio</th>
+            <th>Density (kg/m<sup>3</sup>)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><%= @beam.material %></td>
+            <td><%= @beam.modulus / 1e9 %></td>
+            <td><%= @beam.poisson %></td>
+            <td><%= @beam.density %></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <strong>Mesh Properties</strong>
+      </div>
+      <table class="table">
+        <tbody>
+          <tr><td>Global Mesh Size</td><td><%= @beam.meshsize %> m</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="btn-group">
+  <%= link_to submit_beam_path(@beam), method: :put, class: "btn btn-success" do %>
+    <span class="glyphicon glyphicon-play-circle"></span> Submit
+  <% end %>
+</div>
