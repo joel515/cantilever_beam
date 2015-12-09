@@ -1,3 +1,42 @@
 <% provide(:title, "New") %>
-<h1>Beams#new</h1>
-<p>Find me in app/views/beams/new.html.erb</p>
+<h1>Create a new beam</h1>
+
+<div class="row">
+  <div class="col-md-6 col-md-offset-3">
+    <%= form_for(@beam) do |f| %>
+      <%= render 'shared/error_messages' %>
+
+      <%= f.label :name %>
+      <%= f.text_field :name, class: 'form-control' %>
+
+      <%= f.label :length %>
+      <%= f.number_field :length, class: 'form-control', step: 'any' %>
+
+      <%= f.label :width %>
+      <%= f.number_field :width, class: 'form-control', step: 'any' %>
+
+      <%= f.label :height %>
+      <%= f.number_field :height, class: 'form-control', step: 'any' %>
+
+      <%= f.label :meshsize %>
+      <%= f.number_field :meshsize, class: 'form-control', step: 'any' %>
+
+      <%= f.label :material %>
+      <%= f.text_field :material, class: 'form-control' %>
+
+      <%= f.label :modulus %>
+      <%= f.number_field :modulus, class: 'form-control', step: 'any' %>
+
+      <%= f.label :poisson %>
+      <%= f.number_field :poisson, class: 'form-control', step: 'any' %>
+
+      <%= f.label :density %>
+      <%= f.number_field :density, class: 'form-control', step: 'any' %>
+
+      <%= f.label :load %>
+      <%= f.number_field :load, class: 'form-control', step: 'any' %>
+
+      <%= f.submit "Create beam", class: "btn btn-primary" %>
+    <% end %>
+  </div>
+</div>

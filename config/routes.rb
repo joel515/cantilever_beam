@@ -5,9 +5,14 @@ Rails.application.routes.draw do
   get 'about'   => 'static_pages#about'
   get 'index'   => 'beams#index'
   get 'create'  => 'beams#new'
-  get 'beams/show'
-  get 'beams/edit'
-  get 'beams/results'
+
+  resources :beams do
+    member do
+      put 'submit'
+      put 'copy'
+      get 'results'
+    end
+  end
 
   # The priority is based upon order of creation: first created -> highest priority.
   # See how all your routes lay out with "rake routes".
