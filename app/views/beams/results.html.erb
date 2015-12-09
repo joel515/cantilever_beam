@@ -56,13 +56,29 @@
             <td>&delta;<sub>y</sub></td>
             <td><%= "%.3f" % @beam.d_fem %> mm</td>
             <td><%= "%.3f" % @beam.d %> mm</td>
-            <td><%= "%.2f" % @beam.d_error %>%</td>
+            <td>
+              <% if @beam.d_error.abs <= 5 %>
+                <font color="green"><%= "%.2f" % @beam.d_error %>%</font>
+              <% elsif @beam.d_error.abs <= 10 %>
+                <font color="orange"><%= "%.2f" % @beam.d_error %>%</font>
+              <% else %>
+                <font color="red"><%= "%.2f" % @beam.d_error %>%</font>
+              <% end %>
+            </td>
           </tr>
           <tr>
             <td>&sigma;<sub>33</sub></td>
             <td><%= "%.3f" % @beam.sigma_fem %> MPa</td>
             <td><%= "%.3f" % @beam.sigma_max %> MPa</td>
-            <td><%= "%.2f" % @beam.sigma_error %>%</td>
+            <td>
+              <% if @beam.sigma_error.abs <= 5 %>
+                <font color="green"><%= "%.2f" % @beam.sigma_error %>%</font>
+              <% elsif @beam.sigma_error.abs <= 10 %>
+                <font color="orange"><%= "%.2f" % @beam.sigma_error %>%</font>
+              <% else %>
+                <font color="red"><%= "%.2f" % @beam.sigma_error %>%</font>
+              <% end %>
+            </td>
           </tr>
         </tbody>
       </table>
