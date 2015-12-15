@@ -62,7 +62,11 @@
     </div>
   </div>
 </div>
-
+<% if @beam.completed? %>
+  <div class="btn-group">
+    <%= button(@beam, :results) %>
+  </div>
+<% end %>
 <div class="btn-group">
   <% if @beam.ready? %>
     <%= button(@beam, :submit) %>

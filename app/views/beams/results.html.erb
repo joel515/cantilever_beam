@@ -54,29 +54,29 @@
         <tbody>
           <tr>
             <td>&delta;<sub>y</sub></td>
-            <td><%= "%.3f" % @beam.d_fem %> mm</td>
+            <td><%= "%.3f" % @beam.fem_results[:d_fem] %> mm</td>
             <td><%= "%.3f" % @beam.d %> mm</td>
             <td>
-              <% if @beam.d_error.abs <= 5 %>
-                <%= content_tag(:font, "%.2f%" % @beam.d_error, color: "green") %>
-              <% elsif @beam.d_error.abs <= 10 %>
-                <%= content_tag(:font, "%.2f%" % @beam.d_error, color: "orange") %>
+              <% if @beam.error[:d_error] <= 5 %>
+                <%= content_tag(:font, "%.2f%" % @beam.error[:d_error], color: "green") %>
+              <% elsif @beam.error[:d_error] <= 10 %>
+                <%= content_tag(:font, "%.2f%" % @beam.error[:d_error], color: "orange") %>
               <% else %>
-                <%= content_tag(:font, "%.2f%" % @beam.d_error, color: "red") %>
+                <%= content_tag(:font, "%.2f%" % @beam.error[:d_error], color: "red") %>
               <% end %>
             </td>
           </tr>
           <tr>
             <td>&sigma;<sub>33</sub></td>
-            <td><%= "%.3f" % @beam.sigma_fem %> MPa</td>
+            <td><%= "%.3f" % @beam.fem_results[:sigma_fem] %> MPa</td>
             <td><%= "%.3f" % @beam.sigma_max %> MPa</td>
             <td>
-              <% if @beam.sigma_error.abs <= 5 %>
-                <%= content_tag(:font, "%.2f%" % @beam.sigma_error, color: "green") %>
-              <% elsif @beam.sigma_error.abs <= 10 %>
-                <%= content_tag(:font, "%.2f%" % @beam.sigma_error, color: "orange") %>
+              <% if @beam.error[:sigma_error] <= 5 %>
+                <%= content_tag(:font, "%.2f%" % @beam.error[:sigma_error], color: "green") %>
+              <% elsif @beam.error[:sigma_error] <= 10 %>
+                <%= content_tag(:font, "%.2f%" % @beam.error[:sigma_error], color: "orange") %>
               <% else %>
-                <%= content_tag(:font, "%.2f%" % @beam.sigma_error, color: "red") %>
+                <%= content_tag(:font, "%.2f%" % @beam.error[:sigma_error], color: "red") %>
               <% end %>
             </td>
           </tr>
@@ -84,4 +84,14 @@
       </table>
     </div>
   </div>
+</div>
+<div class="btn-group">
+  <% if @beam.ready? %>
+    <%= button(@beam, :submit) %>
+  <% else %>
+    <%= button(@beam,  :clean) %>
+  <% end %>
+  <%= button(@beam, :edit) %>
+  <%= button(@beam, :copy) %>
+  <%= button(@beam, :delete) %>
 </div>

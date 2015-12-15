@@ -9,6 +9,7 @@
       <th>Id</th>
       <th>Name</th>
       <th>Status</th>
+      <th>Results</th>
       <th>Material</th>
       <th>Load (N)</th>
       <th>Mesh Size (mm)</th>
@@ -20,6 +21,13 @@
       <td><%= beam.id %></td>
       <td><%= link_to beam.name, beam %></td>
       <td><%= status_label(beam) %></td>
+      <td>
+        <% if beam.completed? %>
+          <div class="btn-group">
+           <%= button(beam, :results, text: false, size: 'btn-xs') %>
+          </div>
+        <% end %>
+      </td>
       <td><%= beam.material %></td>
       <td><%= beam.load %></td>
       <td><%= beam.meshsize * 1000 %></td>
@@ -27,6 +35,8 @@
         <div class="btn-group">
           <% if beam.ready? %>
             <%= button(beam, :submit, text: false, size: 'btn-xs') %>
+          <% elsif beam.active? || beam.running? %>
+            <%= button(beam, :clean,  text: false, size: 'btn-xs disabled') %>
           <% else %>
             <%= button(beam, :clean,  text: false, size: 'btn-xs') %>
           <% end %>

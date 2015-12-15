@@ -1,5 +1,5 @@
 module BeamsHelper
-
+  # TODO: Put code to grab results and calculate errors here.
   def status_label(beam, **opts)
     label_class = "label-default"
 
@@ -35,7 +35,7 @@ module BeamsHelper
       link_to "<span class='glyphicon glyphicon-pencil'></span> "\
           "#{type.capitalize if opts[:text]}".html_safe,
         edit_beam_path(beam),
-        class: "btn btn-primary #{opts[:size]}",
+        class: "btn btn-info #{opts[:size]}",
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'Edit beam'
     elsif type == :delete
@@ -52,7 +52,7 @@ module BeamsHelper
           "#{type.capitalize if opts[:text]}".html_safe,
         copy_beam_path(beam),
         method: :put,
-        class: "btn btn-info #{opts[:size]}",
+        class: "btn btn-default #{opts[:size]}",
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'Copy beam'
     elsif type == :clean
@@ -63,6 +63,13 @@ module BeamsHelper
         class: "btn btn-warning #{opts[:size]}",
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'Clean job directory'
+    elsif type == :results
+      link_to "<span class='glyphicon glyphicon-eye-open'></span> "\
+          "#{type.capitalize if opts[:text]}".html_safe,
+        results_beam_path(beam),
+        class: "btn btn-primary #{opts[:size]}",
+        data: { toggle: 'tooltip', placement: 'top' },
+        title: 'View results'
     end
   end
 end

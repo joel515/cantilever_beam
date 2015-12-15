@@ -1,5 +1,6 @@
 class Beam < ActiveRecord::Base
   validates :name,     presence: true, uniqueness: { case_sensitive: false }
+  # TODO: Check name with a regex for parentheses.
   validates :length,   presence: true, numericality: { greater_than: 0 }
   validates :width,    presence: true, numericality: { greater_than: 0 }
   validates :height,   presence: true, numericality: { greater_than: 0 }
@@ -16,32 +17,6 @@ class Beam < ActiveRecord::Base
   require 'open3'
   require 'pathname'
 
-  attr_accessor :inertia
-  attr_accessor :mass
-  attr_accessor :weight
-  attr_accessor :stiffness
-  attr_accessor :theta1
-  attr_accessor :d1
-  attr_accessor :r_load
-  attr_accessor :m_load
-  attr_accessor :theta2
-  attr_accessor :d2
-  attr_accessor :r_grav
-  attr_accessor :m_grav
-  attr_accessor :theta
-  attr_accessor :d
-  attr_accessor :r_total
-  attr_accessor :m_total
-  attr_accessor :sigma_max
-  attr_accessor :fem_results
-  attr_accessor :d_fem
-  attr_accessor :probe_y
-  attr_accessor :probe_z
-  attr_accessor :factor
-  attr_accessor :sigma_fem
-  attr_accessor :d_error
-  attr_accessor :sigma_error
-
   JOB_STATUS = {
     u: "Unsubmitted",
     e: "Exiting",
@@ -55,6 +30,8 @@ class Beam < ActiveRecord::Base
     f: "Failed",
     b: "Submitted"
   }
+
+  GRAVITY = 9.81
 
   def running?
     [JOB_STATUS[:e], JOB_STATUS[:r]].include? status
@@ -140,6 +117,74 @@ class Beam < ActiveRecord::Base
     end
   end
 
+  def inertia
+    width * height**3 / 12
+  end
+
+  def mass
+    length * width * height * density
+  end
+
+  def weight
+    mass * GRAVITY
+  end
+
+  def stiffness
+    modulus * inertia
+  end
+
+  def r_total
+    load + weight
+  end
+
+  def m_total
+    -load * length + -weight * length / 2
+  end
+
+  def theta
+    theta1 = load * length**2 / (2 * stiffness) * 180 / Math::PI
+    theta2 = weight * length**2 / (6 * stiffness) * 180 / Math::PI
+    theta1 + theta2
+  end
+
+  def d
+    d1 = -load * length**3 / (3 * stiffness)
+    d2 = -weight * length**3 / (8 * stiffness)
+    (d1 + d2) * 1000
+  end
+
+  def sigma_max
+    sig = m_total.abs * height / (2000000 * inertia)
+    puts sig
+    sig
+  end
+
+  def fem_results
+    jobpath = Pathname.new(jobdir)
+    data_file = jobpath + "#{prefix}.dat"
+
+    results = []
+    File.readlines(data_file).map do |line|
+      results = line.split.map(&:to_f)
+    end
+
+    d_fem = results[0].abs * -1000
+    probe_y = results[12]
+    probe_z = results[13]
+    #factor = length * height / (2 * probe_z * (probe_y - height / 2))
+    factor = length * height / ((length - probe_z) * (2 * probe_y - height))
+    sigma_fem = factor * results[6].abs / 1000000
+
+    Hash[d_fem: d_fem, sigma_fem: sigma_fem]
+  end
+
+  def error
+    d_error = (fem_results[:d_fem] - d) / d * 100
+    sigma_error = (fem_results[:sigma_fem] - sigma_max) / sigma_max * 100
+
+    Hash[d_error: d_error, sigma_error: sigma_error]
+  end
+
   def submit
     file_prefix = prefix
     home_dir = Dir.home()
@@ -156,8 +201,6 @@ class Beam < ActiveRecord::Base
     fem_out = debug_dir + "#{file_prefix}.sif.o"
     result_file = "#{file_prefix}.vtu"
     output_file = "#{file_prefix}.result"
-    data_file = scratch_dir + "#{file_prefix}.dat"
-    gravity = 9.81
     layers = (length / meshsize).to_i.to_s
 
     # Generate the geometry file and mesh params for GMSH.
@@ -248,7 +291,7 @@ class Beam < ActiveRecord::Base
       f.puts "End"
       f.puts ""
       f.puts "Constants"
-      f.puts "  Gravity(4) = 0 -1 0 #{gravity.to_s}"
+      f.puts "  Gravity(4) = 0 -1 0 #{GRAVITY.to_s}"
       f.puts "  Stefan Boltzmann = 5.67e-08"
       f.puts "  Permittivity of Vacuum = 8.8542e-12"
       f.puts "  Boltzmann Constant = 1.3807e-23"
@@ -309,7 +352,7 @@ class Beam < ActiveRecord::Base
       f.puts ""
       f.puts "Body Force 1"
       f.puts "  Name = \"Gravity\""
-      f.puts "  Stress Bodyforce 2 = $ -#{gravity.to_s} * #{density}"
+      f.puts "  Stress Bodyforce 2 = $ -#{GRAVITY.to_s} * #{density}"
       f.puts "End"
       f.puts ""
       f.puts "Boundary Condition 1"
@@ -332,54 +375,6 @@ class Beam < ActiveRecord::Base
       cmd = "/apps/elmer/bin/ElmerSolver #{fem_file} > #{fem_out} 2>&1 &"
       `#{cmd}`
     }
-
-    # Calculate beam properties.
-    self.inertia = width * height**3 / 12
-    self.mass = length * width * height * density
-    self.weight = mass * gravity
-    self.stiffness = modulus * inertia
-
-    # Calculate end-load results only.
-    self.theta1 = load * length**2 / (2 * stiffness) * 180 / Math::PI
-    self.d1 = -load * length**3 / (3 * stiffness)
-    self.r_load = load
-    self.m_load = -load * length
-
-    # Calculate results due to gravity only (distributed load).
-    self.theta2 = weight * length**2 / (6 * stiffness) * 180 / Math::PI
-    self.d2 = -weight * length**3 / (8 * stiffness)
-    self.r_grav = weight
-    self.m_grav = -weight * length / 2
-
-    # Calculate the totals.
-    self.theta = theta1 + theta2
-    self.d = (d1 + d2) * 1000
-    self.r_total = r_load + r_grav
-    self.m_total = m_load + m_grav
-
-    # Calculate stresses.
-    self.sigma_max = m_total.abs * height / (2000000 * inertia)
-
-    # Get FEA results.
-    # self.fem_results = []
-    # File.readlines(data_file).map do |line|
-    #   self.fem_results = line.split.map(&:to_f)
-    # end
-
-    # self.d_fem = fem_results[0].abs * -1000
-    # self.probe_y = fem_results[12]
-    # self.probe_z = fem_results[13]
-    # self.factor = length * height / (2 * probe_z * (probe_y - height / 2))
-    # self.sigma_fem = factor * fem_results[6].abs / 1000000
-
-    self.d_fem = 0
-    self.sigma_fem = 0
-
-    self.d_error = (d_fem - d) / d * 100
-    self.sigma_error = (sigma_fem - sigma_max) / sigma_max * 100
-
-    self.d_fem = 0
-    self.sigma_fem = 0
 
     self.status = JOB_STATUS[:b]
     self.save
