@@ -12,6 +12,7 @@ class Beam < ActiveRecord::Base
   validates :material, presence: true
   validates :load,     presence: true,
                        numericality: { greater_than_or_equal_to: 0 }
+  #validates :status,   presence: true
 
   attr_accessor :inertia
   attr_accessor :mass
@@ -39,17 +40,63 @@ class Beam < ActiveRecord::Base
   attr_accessor :d_error
   attr_accessor :sigma_error
 
-  def submit
-    require "open3"
+  JOB_STATUS = {
+    u: "Unsubmitted",
+    e: "Exiting",
+    h: "Held",
+    q: "Queued",
+    r: "Running",
+    t: "Moving",
+    w: "Waiting",
+    s: "Suspended",
+    c: "Completed",
+    f: "Failed"
+  }
 
-    #Open3.popen2e("mkdir ~/Scratch/#{name.gsub(/\s+/, "")}")
+  def running?
+    [JOB_STATUS[:e], JOB_STATUS[:r]].include? status
+  end
+
+  def completed?
+    [JOB_STATUS[:c]].include? status
+  end
+
+  def active?
+    [JOB_STATUS[:h], JOB_STATUS[:q],
+     JOB_STATUS[:t], JOB_STATUS[:w]].include? status
+  end
+
+  def failed?
+    [JOB_STATUS[:s], JOB_STATUS[:f]].include? status
+  end
+
+  def ready?
+    [JOB_STATUS[:u]].include? status
+  end
+
+  def check_status
+
+  end
+
+  def submit
+    require 'open3'
+    require 'pathname'
+
     file_prefix = name.gsub(/\s+/, "").downcase
-    geom_file = "#{file_prefix}.geo"
-    mesh_file = "#{file_prefix}.msh"
-    fem_file = "#{file_prefix}.sif"
+    home_dir = Dir.home()
+    scratch_dir = Pathname.new("#{home_dir}/Scratch/#{file_prefix}")
+    Dir.mkdir(scratch_dir) unless scratch_dir.directory?
+    debug_dir = scratch_dir + "debug"
+    Dir.mkdir(debug_dir) unless debug_dir.directory?
+    geom_file = scratch_dir + "#{file_prefix}.geo"
+    mesh_file = scratch_dir + "#{file_prefix}.msh"
+    fem_file = scratch_dir + "#{file_prefix}.sif"
+    geom_out = debug_dir + "#{file_prefix}.geo.o"
+    mesh_out = debug_dir + "#{file_prefix}.msh.o"
+    fem_out = debug_dir + "#{file_prefix}.sif.o"
     result_file = "#{file_prefix}.vtu"
     output_file = "#{file_prefix}.result"
-    data_file = "#{file_prefix}.dat"
+    data_file = scratch_dir + "#{file_prefix}.dat"
     gravity = 9.81
     layers = (length / meshsize).to_i.to_s
 
@@ -77,31 +124,39 @@ class Beam < ActiveRecord::Base
     end
 
     # Run GMSH and hex mesh the beam.
-    Open3.popen2e("/apps/gmsh/gmsh-2.11.0-Linux/bin/gmsh #{geom_file} -3") do |i, oe, t|
-      puts "pid #{t.pid}"
-      oe.each do |line|
-        puts line
-        if line.downcase.include? "error"
-          Process.kill("KILL", t.pid)
+    Dir.chdir(scratch_dir) {
+      Open3.popen2e("/apps/gmsh/gmsh-2.11.0-Linux/bin/gmsh #{geom_file} -3") do |i, oe, t|
+        File.open(geom_out, 'w') do |f|
+          f.puts "pid #{t.pid}"
+          oe.each do |line|
+            f.puts line
+            if line.downcase.include? "error"
+              Process.kill("KILL", t.pid)
+            end
+          end
+          f.puts t.value
         end
       end
-      puts t.value
-    end
+    }
 
     # Run ElmerGrid to convert mesh to Elmer format.
-    Open3.popen2e("/apps/elmer/bin/ElmerGrid 14 2 #{mesh_file} -autoclean") do |i, oe, t|
-      puts "pid #{t.pid}"
-      oe.each do |line|
-        puts line
+    Dir.chdir(scratch_dir) {
+      Open3.popen2e("/apps/elmer/bin/ElmerGrid 14 2 #{mesh_file} -autoclean") do |i, oe, t|
+        File.open(mesh_out, 'w') do |f|
+          f.puts "pid #{t.pid}"
+          oe.each do |line|
+            f.puts line
+          end
+          f.puts t.value
+        end
       end
-      puts t.value
-    end
+    }
 
     # Generate the Elmer input deck.
     File.open(fem_file, 'w') do |f|
       f.puts "Header"
       f.puts "  CHECK KEYWORDS Warn"
-      f.puts "  Mesh DB \".\" \"#{file_prefix}\""
+      f.puts "  Mesh DB \"#{scratch_dir}\" \"#{file_prefix}\""
       f.puts "  Include Path \"\""
       f.puts "  Results Directory \"\""
       f.puts "End"
@@ -201,13 +256,10 @@ class Beam < ActiveRecord::Base
     end
 
     # Run Elmer.
-    Open3.popen2e("/apps/elmer/bin/ElmerSolver #{fem_file}") do |i, oe, t|
-      puts "pid #{t.pid}"
-      oe.each do |line|
-        puts line
-      end
-      puts t.value
-    end
+    Dir.chdir(scratch_dir) {
+      cmd = "/apps/elmer/bin/ElmerSolver #{fem_file} > #{fem_out} 2>&1 &"
+      `#{cmd}`
+    }
 
     # Calculate beam properties.
     self.inertia = width * height**3 / 12
@@ -237,18 +289,24 @@ class Beam < ActiveRecord::Base
     self.sigma_max = m_total.abs * height / (2000000 * inertia)
 
     # Get FEA results.
-    self.fem_results = []
-    File.readlines(data_file).map do |line|
-      self.fem_results = line.split.map(&:to_f)
-    end
+    # self.fem_results = []
+    # File.readlines(data_file).map do |line|
+    #   self.fem_results = line.split.map(&:to_f)
+    # end
 
-    self.d_fem = fem_results[0].abs * -1000
-    self.probe_y = fem_results[12]
-    self.probe_z = fem_results[13]
-    self.factor = length * height / (2 * probe_z * (probe_y - height / 2))
-    self.sigma_fem = factor * fem_results[6].abs / 1000000
+    # self.d_fem = fem_results[0].abs * -1000
+    # self.probe_y = fem_results[12]
+    # self.probe_z = fem_results[13]
+    # self.factor = length * height / (2 * probe_z * (probe_y - height / 2))
+    # self.sigma_fem = factor * fem_results[6].abs / 1000000
+
+    self.d_fem = 0
+    self.sigma_fem = 0
 
     self.d_error = (d_fem - d) / d * 100
     self.sigma_error = (sigma_fem - sigma_max) / sigma_max * 100
+
+    self.d_fem = 0
+    self.sigma_fem = 0
   end
 end

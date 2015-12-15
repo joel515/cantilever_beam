@@ -1,5 +1,6 @@
 <% provide(:title, @beam.name) %>
-<h3><%= @beam.name %></h3>
+
+<h3><%= status_label(@beam, text: @beam.name) %></h3>
 <div class="row">
   <div class="col-md-3">
     <div class="panel panel-default">
@@ -63,7 +64,8 @@
 </div>
 
 <div class="btn-group">
-  <%= link_to '<span class="glyphicon glyphicon-play-circle"></span> Submit'.html_safe, submit_beam_path(@beam), method: :put, class: "btn btn-success", data: { toggle: 'tooltip', placement: 'top' }, title: 'Submit job to cluster' %>
-  <%= link_to '<span class="glyphicon glyphicon-edit"></span> Edit'.html_safe, edit_beam_path(@beam), class: "btn btn-primary", data: { toggle: 'tooltip', placement: 'top' }, title: 'Edit beam' %>
-  <%= link_to '<span class="glyphicon glyphicon-trash"></span> Delete'.html_safe, @beam, method: :delete, class: "btn btn-danger", data: { confirm: 'Are you sure?', toggle: 'tooltip', placement: 'top' }, title: 'Delete beam' %>
+  <%= button(@beam, :submit) %>
+  <%= button(@beam, :edit) %>
+  <%= button(@beam, :copy) %>
+  <%= button(@beam, :delete) %>
 </div>

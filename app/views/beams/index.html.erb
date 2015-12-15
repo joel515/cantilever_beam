@@ -19,12 +19,17 @@
     <tr>
       <td><%= beam.id %></td>
       <td><%= link_to beam.name, beam %></td>
-      <td></td>
+      <td><%= status_label(beam) %></td>
       <td><%= beam.material %></td>
       <td><%= beam.load %></td>
       <td><%= beam.meshsize * 1000 %></td>
       <td>
-        <%= link_to '<span class="glyphicon glyphicon-trash"></span>'.html_safe, beam, method: :delete, class: "btn btn-danger btn-xs", data: { confirm: "Are you sure you want to delete #{beam.name}?", toggle: 'tooltip', placement: 'top' }, title: "Delete #{beam.name}" %>
+        <div class="btn-group">
+          <%= button(beam, :submit, text: false, size: 'btn-xs') if beam.ready? %>
+          <%= button(beam, :edit,   text: false, size: 'btn-xs') %>
+          <%= button(beam, :copy,   text: false, size: 'btn-xs') %>
+          <%= button(beam, :delete, text: false, size: 'btn-xs') %>
+        </div>
       </td>
     </tr>
   <% end %>
