@@ -4,7 +4,7 @@ module BeamsHelper
     label_class = "label-default"
 
     if beam
-      status = beam.status
+      status = beam.check_status
 
       if beam.completed?
         label_class = "label-success"
@@ -24,7 +24,7 @@ module BeamsHelper
 
   def button(beam, type, opts = { text: true, size: 'btn-md' })
     if type == :submit
-      link_to "<span class='glyphicon glyphicon-play-circle'></span> "\
+      link_to "<span class='glyphicon glyphicon-play'></span> "\
           "#{type.capitalize if opts[:text]}".html_safe,
         submit_beam_path(beam),
         method: :put,
@@ -32,7 +32,7 @@ module BeamsHelper
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'Submit job to cluster'
     elsif type == :edit
-      link_to "<span class='glyphicon glyphicon-edit'></span> "\
+      link_to "<span class='glyphicon glyphicon-pencil'></span> "\
           "#{type.capitalize if opts[:text]}".html_safe,
         edit_beam_path(beam),
         class: "btn btn-primary #{opts[:size]}",
@@ -50,10 +50,19 @@ module BeamsHelper
     elsif type == :copy
       link_to "<span class='glyphicon glyphicon-copy'></span> "\
           "#{type.capitalize if opts[:text]}".html_safe,
-        beam,
+        copy_beam_path(beam),
+        method: :put,
         class: "btn btn-info #{opts[:size]}",
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'Copy beam'
+    elsif type == :clean
+      link_to "<span class='glyphicon glyphicon-remove'></span> "\
+          "#{type.capitalize if opts[:text]}".html_safe,
+        clean_beam_path(beam),
+        method: :put,
+        class: "btn btn-warning #{opts[:size]}",
+        data: { toggle: 'tooltip', placement: 'top' },
+        title: 'Clean job directory'
     end
   end
 end

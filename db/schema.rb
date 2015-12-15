@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20151214204858) do
+ActiveRecord::Schema.define(version: 20151215173143) do
 
   create_table "beams", force: :cascade do |t|
     t.string   "name"
@@ -27,6 +27,7 @@ ActiveRecord::Schema.define(version: 20151214204858) do
     t.datetime "updated_at",                         null: false
     t.float    "load"
     t.string   "status",     default: "Unsubmitted"
+    t.string   "jobdir"
   end
 
   add_index "beams", ["name"], name: "index_beams_on_name", unique: true

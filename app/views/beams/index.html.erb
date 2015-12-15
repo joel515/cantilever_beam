@@ -25,7 +25,11 @@
       <td><%= beam.meshsize * 1000 %></td>
       <td>
         <div class="btn-group">
-          <%= button(beam, :submit, text: false, size: 'btn-xs') if beam.ready? %>
+          <% if beam.ready? %>
+            <%= button(beam, :submit, text: false, size: 'btn-xs') %>
+          <% else %>
+            <%= button(beam, :clean,  text: false, size: 'btn-xs') %>
+          <% end %>
           <%= button(beam, :edit,   text: false, size: 'btn-xs') %>
           <%= button(beam, :copy,   text: false, size: 'btn-xs') %>
           <%= button(beam, :delete, text: false, size: 'btn-xs') %>

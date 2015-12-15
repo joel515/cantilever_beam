@@ -64,7 +64,11 @@
 </div>
 
 <div class="btn-group">
-  <%= button(@beam, :submit) %>
+  <% if @beam.ready? %>
+    <%= button(@beam, :submit) %>
+  <% else %>
+    <%= button(@beam,  :clean) %>
+  <% end %>
   <%= button(@beam, :edit) %>
   <%= button(@beam, :copy) %>
   <%= button(@beam, :delete) %>

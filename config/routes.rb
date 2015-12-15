@@ -10,6 +10,7 @@ Rails.application.routes.draw do
     member do
       put 'submit'
       put 'copy'
+      put 'clean'
       get 'results'
     end
   end

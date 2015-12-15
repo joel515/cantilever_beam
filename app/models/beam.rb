@@ -12,7 +12,9 @@ class Beam < ActiveRecord::Base
   validates :material, presence: true
   validates :load,     presence: true,
                        numericality: { greater_than_or_equal_to: 0 }
-  #validates :status,   presence: true
+
+  require 'open3'
+  require 'pathname'
 
   attr_accessor :inertia
   attr_accessor :mass
@@ -50,7 +52,8 @@ class Beam < ActiveRecord::Base
     w: "Waiting",
     s: "Suspended",
     c: "Completed",
-    f: "Failed"
+    f: "Failed",
+    b: "Submitted"
   }
 
   def running?
@@ -63,7 +66,7 @@ class Beam < ActiveRecord::Base
 
   def active?
     [JOB_STATUS[:h], JOB_STATUS[:q],
-     JOB_STATUS[:t], JOB_STATUS[:w]].include? status
+     JOB_STATUS[:t], JOB_STATUS[:w], JOB_STATUS[:b]].include? status
   end
 
   def failed?
@@ -74,17 +77,74 @@ class Beam < ActiveRecord::Base
     [JOB_STATUS[:u]].include? status
   end
 
-  def check_status
+  def ready
+    self.status = JOB_STATUS[:u]
+    self.save
+  end
 
+  def submitted?
+    [JOB_STATUS[:b]].include? status
+  end
+
+  def check_status
+    # Temporary implementation hack until PBS/Torque is implemented.
+    if jobdir.nil? || jobdir.empty?
+      if submitted? || active? || running?
+          self.status = JOB_STATUS[:f]
+      else
+        status
+      end
+    else
+      jobpath = Pathname.new(jobdir)
+      result_file = jobpath + jobpath.basename + "#{prefix}0001.vtu"
+      fem_out = jobpath + "debug/#{prefix}.sif.o"
+
+      if !jobpath.directory?
+        if submitted? || active? || running?
+          self.status = JOB_STATUS[:f]
+        else
+          self.status = JOB_STATUS[:u]
+        end
+        self.save
+        status
+      elsif submitted? || running?
+        if result_file.exist?
+          self.status = JOB_STATUS[:c]
+        elsif fem_out.exist?
+          if fem_out.read.include?("Error:")
+            self.status = JOB_STATUS[:f]
+          else
+            self.status = JOB_STATUS[:r]
+          end
+        else
+          self.status = JOB_STATUS[:r]
+        end
+        self.save
+        status
+      else
+        status
+      end
+    end
+  end
+
+  def prefix
+    name.gsub(/\s+/, "").downcase
+  end
+
+  def clean
+    jobpath = Pathname.new(jobdir)
+    if jobpath.directory?
+      jobpath.rmtree
+      self.jobdir = ""
+      self.status = JOB_STATUS[:u]
+    end
   end
 
   def submit
-    require 'open3'
-    require 'pathname'
-
-    file_prefix = name.gsub(/\s+/, "").downcase
+    file_prefix = prefix
     home_dir = Dir.home()
-    scratch_dir = Pathname.new("#{home_dir}/Scratch/#{file_prefix}")
+    self.jobdir = "#{home_dir}/Scratch/#{file_prefix}"
+    scratch_dir = Pathname.new(jobdir)
     Dir.mkdir(scratch_dir) unless scratch_dir.directory?
     debug_dir = scratch_dir + "debug"
     Dir.mkdir(debug_dir) unless debug_dir.directory?
@@ -135,6 +195,12 @@ class Beam < ActiveRecord::Base
             end
           end
           f.puts t.value
+
+          if t.value.to_s.split[-1].to_i != 0
+            self.status = JOB_STATUS[:f]
+            self.save
+            return
+          end
         end
       end
     }
@@ -148,6 +214,12 @@ class Beam < ActiveRecord::Base
             f.puts line
           end
           f.puts t.value
+
+          if t.value.to_s.split[-1].to_i != 0
+            self.status = JOB_STATUS[:f]
+            self.save
+            return
+          end
         end
       end
     }
@@ -308,5 +380,8 @@ class Beam < ActiveRecord::Base
 
     self.d_fem = 0
     self.sigma_fem = 0
+
+    self.status = JOB_STATUS[:b]
+    self.save
   end
 end

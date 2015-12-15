@@ -1,5 +1,6 @@
 class BeamsController < ApplicationController
-  before_action :set_beam, only: [:show, :submit, :results, :edit, :update, :destroy]
+  before_action :set_beam, only: [:show, :submit, :results, :edit, :update,
+    :destroy, :clean, :copy]
 
   def index
     if Beam.count > 0
@@ -34,8 +35,8 @@ class BeamsController < ApplicationController
 
   def submit
     @beam.submit
-    flash[:success] = "Simulation for #{@beam.name} successful!"
-    render 'results'
+    flash[:success] = "Simulation for #{@beam.name} successfully submitted!"
+    redirect_to index_url
   end
 
   def update
@@ -48,9 +49,25 @@ class BeamsController < ApplicationController
   end
 
   def destroy
+    @beam.clean
     @beam.destroy
     flash[:success] = "Beam deleted."
     redirect_to index_url
+  end
+
+  def clean
+    @beam.clean
+    flash[:success] = "Job directory successfully deleted"
+    # TODO: get the previous url and redirect to that
+    redirect_to index_url
+  end
+
+  def copy
+    duplicate_beam = @beam.dup
+    duplicate_beam.name = "#{@beam.name}-Copy"
+    duplicate_beam.ready
+    # TODO: get the previous url and redirect to that
+    redirect_to duplicate_beam
   end
 
   private
