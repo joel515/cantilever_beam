@@ -35,7 +35,11 @@ class BeamsController < ApplicationController
 
   def submit
     @beam.submit
-    flash[:success] = "Simulation for #{@beam.name} successfully submitted!"
+    if @beam.submitted?
+      flash[:success] = "Simulation for #{@beam.name} successfully submitted!"
+    else
+      flash[:danger] = "Submission for #{@beam.name} failed."
+    end
     redirect_to index_url
   end
 

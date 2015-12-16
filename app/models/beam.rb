@@ -201,7 +201,16 @@ class Beam < ActiveRecord::Base
     fem_out = debug_dir + "#{file_prefix}.sif.o"
     result_file = "#{file_prefix}.vtu"
     output_file = "#{file_prefix}.result"
-    layers = (length / meshsize).to_i.to_s
+
+    numels_l = (length / meshsize).to_i
+    if numels_l.odd?
+      numels_l += 1
+    end
+    numnodes_h = (height / meshsize).to_i + 1
+    numnodes_w = (width / meshsize).to_i
+    if numnodes_w.even?
+      numnodes_w += 1
+    end
 
     # Generate the geometry file and mesh params for GMSH.
     File.open(geom_file, 'w') do |f|
@@ -216,11 +225,12 @@ class Beam < ActiveRecord::Base
       f.puts "Line Loop(5) = {3, 4, 1, 2};"
       f.puts "Plane Surface(6) = {5};"
       f.puts "Extrude {0, 0, #{length}} {"
-      f.puts "  Surface{6}; Layers{#{layers}}; Recombine;"
+      f.puts "  Surface{6}; Layers{#{numels_l}}; Recombine;"
       f.puts "}"
       f.puts "Surface Loop(29) = {19, 6, 15, 28, 23, 27};"
       f.puts "Volume(30) = {29};"
-      f.puts "Transfinite Line \"*\" = 10;"
+      f.puts "Transfinite Line {1, 3} = #{numnodes_w};"
+      f.puts "Transfinite Line {2, 4} = #{numnodes_h};"
       f.puts "Transfinite Surface \"*\";"
       f.puts "Recombine Surface \"*\";"
       f.puts "Transfinite Volume \"*\";"
@@ -333,8 +343,8 @@ class Beam < ActiveRecord::Base
       f.puts "  File Append = False"
       f.puts "  Variable 1 = Displacement 2"
       f.puts "  Operator 1 = max abs"
-      f.puts "  Save Coordinates(1,3) = #{(width.to_f / 2).to_s} #{height}
-                  #{(length.to_f / 2).to_s}"
+      f.puts "  Save Coordinates(1,3) = #{(width.to_f / 2).to_s} #{height} "\
+        "#{(length.to_f / 2).to_s}"
       f.puts "End"
       f.puts ""
       f.puts "Equation 1"
