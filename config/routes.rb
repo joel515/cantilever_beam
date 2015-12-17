@@ -12,6 +12,7 @@ Rails.application.routes.draw do
       put 'copy'
       put 'clean'
       get 'results'
+      get 'embed'
     end
   end
 

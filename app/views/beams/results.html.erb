@@ -32,7 +32,7 @@
           <tr><td>Reactive Moment</td><td><%= "%.0f" % @beam.m_total %> N-m</tr>
           <tr><td>Maximum Angle</td><td><%= "%.3f" % @beam.theta %>&#176;</tr>
           <tr><td>Maximum Displacement</td><td><%= "%.3f" % @beam.d %> mm</tr>
-          <tr><td>Maximum Principal Stress</td><td><%= "%.3f" % @beam.sigma_max %> MPa</tr>
+          <tr><td>Maximum Principal Stress</td><td><%= "%.3f" % (@beam.sigma_max / 1e6) %> MPa</tr>
         </tbody>
       </table>
     </div>
@@ -68,8 +68,8 @@
           </tr>
           <tr>
             <td>&sigma;<sub>33</sub></td>
-            <td><%= "%.3f" % @beam.fem_results[:sigma_fem] %> MPa</td>
-            <td><%= "%.3f" % @beam.sigma_max %> MPa</td>
+            <td><%= "%.3f" % (@beam.fem_results[:sigma_fem] / 1e6) %> MPa</td>
+            <td><%= "%.3f" % (@beam.sigma_max / 1e6) %> MPa</td>
             <td>
               <% if @beam.error[:sigma_error] <= 5 %>
                 <%= content_tag(:font, "%.2f%" % @beam.error[:sigma_error], color: "green") %>
@@ -82,6 +82,13 @@
           </tr>
         </tbody>
       </table>
+    </div>
+    <div class="webgl">
+      <iframe class="webgl-viewer" type="text/html"
+              width="555px" height="350px" frameborder="0"
+              style="border: 1px solid;"
+              src="embed.html">
+      </iframe>
     </div>
   </div>
 </div>

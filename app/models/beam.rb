@@ -72,9 +72,10 @@ class Beam < ActiveRecord::Base
         status
       end
     else
+      file_prefix = prefix
       jobpath = Pathname.new(jobdir)
-      result_file = jobpath + jobpath.basename + "#{prefix}0001.vtu"
-      fem_out = jobpath + "debug/#{prefix}.sif.o"
+      result_file = jobpath + jobpath.basename + "#{file_prefix}0001.vtu"
+      fem_out = jobpath + "debug/#{file_prefix}.sif.o"
 
       if !jobpath.directory?
         if submitted? || active? || running?
@@ -154,9 +155,7 @@ class Beam < ActiveRecord::Base
   end
 
   def sigma_max
-    sig = m_total.abs * height / (2000000 * inertia)
-    puts sig
-    sig
+    m_total.abs * height / (2 * inertia)
   end
 
   def fem_results
@@ -171,9 +170,8 @@ class Beam < ActiveRecord::Base
     d_fem = results[0].abs * -1000
     probe_y = results[12]
     probe_z = results[13]
-    #factor = length * height / (2 * probe_z * (probe_y - height / 2))
     factor = length * height / ((length - probe_z) * (2 * probe_y - height))
-    sigma_fem = factor * results[6].abs / 1000000
+    sigma_fem = factor * results[6].abs
 
     Hash[d_fem: d_fem, sigma_fem: sigma_fem]
   end
@@ -388,5 +386,121 @@ class Beam < ActiveRecord::Base
 
     self.status = JOB_STATUS[:b]
     self.save
+  end
+
+  def generate_results
+    # TODO: Ensure wireframe beam is undeformed.
+    # TODO: Make scale a percentage of total deformation.
+    # TODO: Give a warning when beam reaches nonlinear territory.
+    # TODO: Capture max stress and scale legend accordingly
+    # TODO: Create another webgl/html file to displace von Mises and displ.
+    # TODO: Implement buttons to choose between principal, von Mises, and displ.
+
+    file_prefix = prefix
+    jobpath = Pathname.new(jobdir)
+    results_dir = jobpath + jobpath.basename
+    result_file = results_dir + "#{file_prefix}0001.vtu"
+    pv_script = results_dir + "#{file_prefix}.py"
+    webgl_file = results_dir + "#{file_prefix}.webgl"
+    scale = 10.0
+
+    # Generate the Paraview batch Python file.
+    File.open(pv_script, 'w') do |f|
+      #### import the simple module from the paraview
+      f.puts "from paraview.simple import *"
+      #### disable automatic camera reset on 'Show'
+      f.puts "paraview.simple._DisableFirstRenderCameraReset()"
+
+      # create a new 'XML Unstructured Grid Reader'
+      f.puts "beamvtu = XMLUnstructuredGridReader(FileName=[\"#{result_file}\"])"
+      f.puts "beamvtu.CellArrayStatus = ['GeometryIds']"
+      f.puts "beamvtu.PointArrayStatus = ['stress_xx', 'stress_yy', 'stress_zz', 'stress_xy', 'stress_yz', 'stress_xz', 'vonmises', 'displacement']"
+
+      # get active view
+      f.puts "renderView1 = GetActiveViewOrCreate('RenderView')"
+
+      # show data in view
+      f.puts "beamvtuDisplay = Show(beamvtu, renderView1)"
+
+      # reset view to fit data
+      f.puts "renderView1.ResetCamera()"
+
+      # change representation type
+      f.puts "beamvtuDisplay.SetRepresentationType('Wireframe')"
+
+      # change solid color
+      f.puts "beamvtuDisplay.AmbientColor = [0.0, 0.0, 0.4980392156862745]"
+
+      # Properties modified on beamvtuDisplay
+      f.puts "beamvtuDisplay.Opacity = 0.2"
+
+      # create a new 'Warp By Vector'
+      f.puts "warpByVector1 = WarpByVector(Input=beamvtu)"
+      f.puts "warpByVector1.Vectors = ['POINTS', 'displacement']"
+      f.puts "warpByVector1.ScaleFactor = #{scale}"
+
+      # show data in view
+      f.puts "warpByVector1Display = Show(warpByVector1, renderView1)"
+
+      # set scalar coloring
+      f.puts "ColorBy(warpByVector1Display, ('POINTS', 'stress_zz'))"
+
+      # rescale color and/or opacity maps used to include current data range
+      f.puts "warpByVector1Display.RescaleTransferFunctionToDataRange(True)"
+
+      # show color bar/color legend
+      f.puts "warpByVector1Display.SetScalarBarVisibility(renderView1, True)"
+
+      # get color transfer function/color map for 'stresszz'
+      f.puts "stresszzLUT = GetColorTransferFunction('stresszz')"
+      f.puts "stresszzLUT.LockDataRange = 0"
+      f.puts "stresszzLUT.InterpretValuesAsCategories = 0"
+      f.puts "stresszzLUT.ShowCategoricalColorsinDataRangeOnly = 0"
+      f.puts "stresszzLUT.RescaleOnVisibilityChange = 0"
+      f.puts "stresszzLUT.EnableOpacityMapping = 0"
+      f.puts "stresszzLUT.RGBPoints = [-#{sigma_max}, 0.231373, 0.298039, 0.752941, 3.7439167499542236e-05, 0.865003, 0.865003, 0.865003, #{sigma_max}, 0.705882, 0.0156863, 0.14902]"
+      f.puts "stresszzLUT.UseLogScale = 0"
+      f.puts "stresszzLUT.ColorSpace = 'Diverging'"
+      f.puts "stresszzLUT.UseBelowRangeColor = 0"
+      f.puts "stresszzLUT.BelowRangeColor = [0.0, 0.0, 0.0]"
+      f.puts "stresszzLUT.UseAboveRangeColor = 0"
+      f.puts "stresszzLUT.AboveRangeColor = [1.0, 1.0, 1.0]"
+      f.puts "stresszzLUT.NanColor = [1.0, 1.0, 0.0]"
+      f.puts "stresszzLUT.Discretize = 1"
+      f.puts "stresszzLUT.NumberOfTableValues = 256"
+      f.puts "stresszzLUT.ScalarRangeInitialized = 1.0"
+      f.puts "stresszzLUT.HSVWrap = 0"
+      f.puts "stresszzLUT.VectorComponent = 0"
+      f.puts "stresszzLUT.VectorMode = 'Magnitude'"
+      f.puts "stresszzLUT.AllowDuplicateScalars = 1"
+      f.puts "stresszzLUT.Annotations = []"
+      f.puts "stresszzLUT.ActiveAnnotatedValues = []"
+      f.puts "stresszzLUT.IndexedColors = []"
+
+      # get opacity transfer function/opacity map for 'stresszz'
+      f.puts "stresszzPWF = GetOpacityTransferFunction('stresszz')"
+      f.puts "stresszzPWF.Points = [-#{sigma_max}, 0.0, 0.5, 0.0, #{sigma_max}, 1.0, 0.5, 0.0]"
+      f.puts "stresszzPWF.AllowDuplicateScalars = 1"
+      f.puts "stresszzPWF.ScalarRangeInitialized = 1"
+
+      # Properties modified on renderView1.AxesGrid
+      f.puts "renderView1.AxesGrid.Visibility = 1"
+
+      # export view
+      f.puts "ExportView(\"#{webgl_file}\", view=renderView1)"
+    end
+
+    # Run Python Paraview.
+    Dir.chdir(results_dir) {
+      cmd = "/usr/bin/pvpython #{pv_script}" # > #{fem_out} 2>&1"
+      `#{cmd}`
+    }
+  end
+
+  def graphics_file
+    jobpath = Pathname.new(jobdir)
+    results_dir = jobpath + jobpath.basename
+    results_file = lambda { |f| f.exist? ? f : "" }
+    results_file.call(results_dir + "#{prefix}.html").to_s
   end
 end

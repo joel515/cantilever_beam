@@ -1,6 +1,6 @@
 class BeamsController < ApplicationController
   before_action :set_beam, only: [:show, :submit, :results, :edit, :update,
-    :destroy, :clean, :copy]
+    :destroy, :clean, :copy, :embed]
 
   def index
     if Beam.count > 0
@@ -48,6 +48,7 @@ class BeamsController < ApplicationController
       flash[:success] = "Successully updated #{@beam.name}."
       redirect_to @beam
     else
+      flash[:danger] = "Problem updating #{@beam.name}."
       render 'edit'
     end
   end
@@ -72,6 +73,11 @@ class BeamsController < ApplicationController
     duplicate_beam.ready
     # TODO: get the previous url and redirect to that
     redirect_to duplicate_beam
+  end
+
+  def embed
+    @beam.generate_results if @beam.graphics_file.empty?
+    render layout: false, file: @beam.graphics_file
   end
 
   private
