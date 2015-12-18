@@ -105,8 +105,11 @@ class Beam < ActiveRecord::Base
     end
   end
 
+  # Formulate a file/directory prefix using the beam's name by removing all
+  # characters that ar not and converting to lower case.
   def prefix
-    name.gsub(/\s+/, "").downcase
+    # name.gsub(/\s+/, "").downcase
+    name.gsub(/\W/, "").downcase
   end
 
   def clean
@@ -118,44 +121,60 @@ class Beam < ActiveRecord::Base
     end
   end
 
+  # Calculate the beam's bending moment of inertia.
   def inertia
     width * height**3 / 12
   end
 
+  # Calculate the beam's mass.
   def mass
     length * width * height * density
   end
 
+  # Calculate the beam's weight.
   def weight
     mass * GRAVITY
   end
 
+  # Calculate the beam's flexural stiffness.
   def stiffness
     modulus * inertia
   end
 
+  # Calculate the total force reaction due to load and gravity.
   def r_total
     load + weight
   end
 
+  # Calculate the total moment reaction due to load and gravity.
   def m_total
     -load * length + -weight * length / 2
   end
 
+  # Calculate the beam end angle due to load and gravity.
   def theta
     theta1 = load * length**2 / (2 * stiffness) * 180 / Math::PI
     theta2 = weight * length**2 / (6 * stiffness) * 180 / Math::PI
     theta1 + theta2
   end
 
+  # Calculate to total displacement due to load and gravity.
   def d
     d1 = -load * length**3 / (3 * stiffness)
     d2 = -weight * length**3 / (8 * stiffness)
-    (d1 + d2) * 1000
+    d1 + d2
   end
 
+  # Calculate the maximum pricipal stress.
   def sigma_max
     m_total.abs * height / (2 * inertia)
+  end
+
+  # Check if the .dat.names file has the 'stress_zz' keyword.
+  def stress_results_ok?
+    jobpath = Pathname.new(jobdir)
+    data_name_file = jobpath + "#{prefix}.dat.names"
+    File.foreach(data_name_file).grep(/stress_zz/).any?
   end
 
   def fem_results
@@ -167,18 +186,26 @@ class Beam < ActiveRecord::Base
       results = line.split.map(&:to_f)
     end
 
-    d_fem = results[0].abs * -1000
-    probe_y = results[12]
-    probe_z = results[13]
-    factor = length * height / ((length - probe_z) * (2 * probe_y - height))
-    sigma_fem = factor * results[6].abs
+    d_fem = -results[0].abs
+
+    sigma_fem = 0
+    if stress_results_ok?
+      probe_y = results[12]
+      probe_z = results[13]
+      factor = length * height / ((length - probe_z) * (2 * probe_y - height))
+      sigma_fem = factor * results[6].abs
+    end
 
     Hash[d_fem: d_fem, sigma_fem: sigma_fem]
   end
 
   def error
     d_error = (fem_results[:d_fem] - d) / d * 100
-    sigma_error = (fem_results[:sigma_fem] - sigma_max) / sigma_max * 100
+
+    sigma_error = 0
+    if stress_results_ok?
+      sigma_error = (fem_results[:sigma_fem] - sigma_max) / sigma_max * 100
+    end
 
     Hash[d_error: d_error, sigma_error: sigma_error]
   end
@@ -395,6 +422,7 @@ class Beam < ActiveRecord::Base
     # TODO: Capture max stress and scale legend accordingly
     # TODO: Create another webgl/html file to displace von Mises and displ.
     # TODO: Implement buttons to choose between principal, von Mises, and displ.
+    # TODO: Make scale variable, dependent upon displ, length, and load.
 
     file_prefix = prefix
     jobpath = Pathname.new(jobdir)
@@ -402,7 +430,10 @@ class Beam < ActiveRecord::Base
     result_file = results_dir + "#{file_prefix}0001.vtu"
     pv_script = results_dir + "#{file_prefix}.py"
     webgl_file = results_dir + "#{file_prefix}.webgl"
-    scale = 10.0
+    d_fem = fem_results[:d_fem]
+    displ_scale = (load / (d_fem * 1e4)).abs
+    plane_scale = 3.0
+    arrow_scale = 0.2 * [length, width, height].max
 
     # Generate the Paraview batch Python file.
     File.open(pv_script, 'w') do |f|
@@ -419,37 +450,48 @@ class Beam < ActiveRecord::Base
       # get active view
       f.puts "renderView1 = GetActiveViewOrCreate('RenderView')"
 
-      # show data in view
-      f.puts "beamvtuDisplay = Show(beamvtu, renderView1)"
-
       # reset view to fit data
       f.puts "renderView1.ResetCamera()"
-
-      # change representation type
-      f.puts "beamvtuDisplay.SetRepresentationType('Wireframe')"
-
-      # change solid color
-      f.puts "beamvtuDisplay.AmbientColor = [0.0, 0.0, 0.4980392156862745]"
-
-      # Properties modified on beamvtuDisplay
-      f.puts "beamvtuDisplay.Opacity = 0.2"
 
       # create a new 'Warp By Vector'
       f.puts "warpByVector1 = WarpByVector(Input=beamvtu)"
       f.puts "warpByVector1.Vectors = ['POINTS', 'displacement']"
-      f.puts "warpByVector1.ScaleFactor = #{scale}"
+
+      # Geometry comes into Paraview already displaced.
+      # Subtract 1 from scale to get true scale.
+      f.puts "warpByVector1.ScaleFactor = -1.0"
 
       # show data in view
       f.puts "warpByVector1Display = Show(warpByVector1, renderView1)"
 
+            # change representation type
+      f.puts "warpByVector1Display.SetRepresentationType('Wireframe')"
+
+      # set active source
+      f.puts "SetActiveSource(beamvtu)"
+
+            # create a new 'Warp By Vector'
+      f.puts "warpByVector2 = WarpByVector(Input=beamvtu)"
+      f.puts "warpByVector2.Vectors = ['POINTS', 'displacement']"
+
+      # Geometry comes into Paraview already displaced.
+      # Subtract 1 from scale to get true scale.
+      f.puts "warpByVector2.ScaleFactor = #{displ_scale - 1}"
+
+      # show data in view"
+      f.puts "warpByVector2Display = Show(warpByVector2, renderView1)"
+
+      # hide data in view
+      f.puts "Hide(beamvtu, renderView1)"
+
       # set scalar coloring
-      f.puts "ColorBy(warpByVector1Display, ('POINTS', 'stress_zz'))"
+      f.puts "ColorBy(warpByVector2Display, ('POINTS', 'stress_zz'))"
 
       # rescale color and/or opacity maps used to include current data range
-      f.puts "warpByVector1Display.RescaleTransferFunctionToDataRange(True)"
+      f.puts "warpByVector2Display.RescaleTransferFunctionToDataRange(True)"
 
       # show color bar/color legend
-      f.puts "warpByVector1Display.SetScalarBarVisibility(renderView1, True)"
+      f.puts "warpByVector2Display.SetScalarBarVisibility(renderView1, True)"
 
       # get color transfer function/color map for 'stresszz'
       f.puts "stresszzLUT = GetColorTransferFunction('stresszz')"
@@ -477,14 +519,71 @@ class Beam < ActiveRecord::Base
       f.puts "stresszzLUT.ActiveAnnotatedValues = []"
       f.puts "stresszzLUT.IndexedColors = []"
 
+      # Apply a preset using its name. Note this may not work as expected when presets have duplicate names.
+      f.puts "stresszzLUT.ApplyPreset('Cool to Warm (Extended)', True)"
+
       # get opacity transfer function/opacity map for 'stresszz'
       f.puts "stresszzPWF = GetOpacityTransferFunction('stresszz')"
       f.puts "stresszzPWF.Points = [-#{sigma_max}, 0.0, 0.5, 0.0, #{sigma_max}, 1.0, 0.5, 0.0]"
       f.puts "stresszzPWF.AllowDuplicateScalars = 1"
       f.puts "stresszzPWF.ScalarRangeInitialized = 1"
 
-      # Properties modified on renderView1.AxesGrid
-      f.puts "renderView1.AxesGrid.Visibility = 1"
+
+
+      # # Properties modified on renderView1.AxesGrid
+      # f.puts "renderView1.AxesGrid.Visibility = 1"
+
+      # create a new 'Plane'
+      f.puts "plane1 = Plane()"
+      f.puts "plane1.Origin = [0.0, 0.0, 0.0]"
+      f.puts "plane1.Point1 = [#{width}, 0.0, 0.0]"
+      f.puts "plane1.Point2 = [0.0, #{height}, 0.0]"
+      f.puts "plane1.XResolution = 1"
+      f.puts "plane1.YResolution = 1"
+
+      # show data in view
+      f.puts "plane1Display = Show(plane1, renderView1)"
+
+      # Properties modified on plane1Display
+      f.puts "plane1Display.Scale = [#{plane_scale}, #{plane_scale}, 1.0]"
+
+      # Properties modified on plane1Display
+      f.puts "plane1Display.Position = [#{(1 - plane_scale) * width / 2}, #{(1 - plane_scale) * height / 2}, 0.0]"
+
+      # change solid color
+      f.puts "plane1Display.DiffuseColor = [0.0, 0.0, 0.682]"
+
+      # create a new 'Arrow'
+      f.puts "arrow1 = Arrow()"
+      f.puts "arrow1.TipResolution = 50"
+      f.puts "arrow1.TipRadius = 0.1"
+      f.puts "arrow1.TipLength = 0.35"
+      f.puts "arrow1.ShaftResolution = 50"
+      f.puts "arrow1.ShaftRadius = 0.03"
+      f.puts "arrow1.Invert = 1"
+
+      # show data in view
+      f.puts "arrow1Display = Show(arrow1, renderView1)"
+
+      # change solid color
+      f.puts "arrow1Display.DiffuseColor = [1.0, 0.0, 0.0]"
+
+      # Properties modified on arrow1Display
+      f.puts "arrow1Display.Orientation = [0.0, 0.0, 90.0]"
+
+      # Properties modified on arrow1Display
+      f.puts "arrow1Display.Position = [#{width / 2}, #{height + displ_scale * d_fem}, #{length}]"
+
+      # Properties modified on arrow1Display
+      f.puts "arrow1Display.Scale = [#{arrow_scale}, #{arrow_scale}, #{arrow_scale}]"
+
+      # Position the legend.
+      f.puts "sb = GetScalarBar(stresszzLUT, GetActiveView())"
+      f.puts "sb.Orientation = 'Horizontal'"
+      f.puts "sb.Position = [0.3, 0.05]"
+
+      # reset view to fit data
+      f.puts "renderView1.ResetCamera()"
 
       # export view
       f.puts "ExportView(\"#{webgl_file}\", view=renderView1)"

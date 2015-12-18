@@ -22,7 +22,7 @@
     </div>
     <div class="panel panel-default">
       <div class="panel-heading">
-        <strong>Calculated Results</strong>
+        <strong>Calculated Results from Beam Theory</strong>
       </div>
       <table class="table">
         <tbody>
@@ -31,7 +31,7 @@
           <tr><td>Reactive Force</td><td><%= "%.0f" % @beam.r_total %> N</tr>
           <tr><td>Reactive Moment</td><td><%= "%.0f" % @beam.m_total %> N-m</tr>
           <tr><td>Maximum Angle</td><td><%= "%.3f" % @beam.theta %>&#176;</tr>
-          <tr><td>Maximum Displacement</td><td><%= "%.3f" % @beam.d %> mm</tr>
+          <tr><td>Maximum Displacement</td><td><%= "%.3f" % (@beam.d * 1e3) %> mm</tr>
           <tr><td>Maximum Principal Stress</td><td><%= "%.3f" % (@beam.sigma_max / 1e6) %> MPa</tr>
         </tbody>
       </table>
@@ -47,15 +47,15 @@
           <tr>
             <th></th>
             <th>Analytical Result</th>
-            <th>Book Prediction</th>
+            <th>Beam Theory</th>
             <th>Error</th>
           </tr>
         </thead>
         <tbody>
           <tr>
             <td>&delta;<sub>y</sub></td>
-            <td><%= "%.3f" % @beam.fem_results[:d_fem] %> mm</td>
-            <td><%= "%.3f" % @beam.d %> mm</td>
+            <td><%= "%.3f" % (@beam.fem_results[:d_fem] * 1e3) %> mm</td>
+            <td><%= "%.3f" % (@beam.d * 1e3) %> mm</td>
             <td>
               <% if @beam.error[:d_error] <= 5 %>
                 <%= content_tag(:font, "%.2f%" % @beam.error[:d_error], color: "green") %>
@@ -68,15 +68,25 @@
           </tr>
           <tr>
             <td>&sigma;<sub>33</sub></td>
-            <td><%= "%.3f" % (@beam.fem_results[:sigma_fem] / 1e6) %> MPa</td>
+            <td>
+              <% if @beam.stress_results_ok? %>
+                <%= "%.3f" % (@beam.fem_results[:sigma_fem] / 1e6) %> MPa
+              <% else %>
+                <%= "N/A" %>
+              <% end %>
+            </td>
             <td><%= "%.3f" % (@beam.sigma_max / 1e6) %> MPa</td>
             <td>
-              <% if @beam.error[:sigma_error] <= 5 %>
-                <%= content_tag(:font, "%.2f%" % @beam.error[:sigma_error], color: "green") %>
-              <% elsif @beam.error[:sigma_error] <= 10 %>
-                <%= content_tag(:font, "%.2f%" % @beam.error[:sigma_error], color: "orange") %>
+              <% if @beam.stress_results_ok? %>
+                <% if @beam.error[:sigma_error] <= 5 %>
+                  <%= content_tag(:font, "%.2f%" % @beam.error[:sigma_error], color: "green") %>
+                <% elsif @beam.error[:sigma_error] <= 10 %>
+                  <%= content_tag(:font, "%.2f%" % @beam.error[:sigma_error], color: "orange") %>
+                <% else %>
+                  <%= content_tag(:font, "%.2f%" % @beam.error[:sigma_error], color: "red") %>
+                <% end %>
               <% else %>
-                <%= content_tag(:font, "%.2f%" % @beam.error[:sigma_error], color: "red") %>
+                <%= "N/A" %>
               <% end %>
             </td>
           </tr>
