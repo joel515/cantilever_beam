@@ -1,35 +1,80 @@
 <%= form_for(@beam) do |f| %>
-  <%= render 'shared/error_messages' %>
 
-  <%= f.label :name %>
-  <%= f.text_field :name, class: 'form-control' %>
-
-  <%= f.label :length %>
-  <%= f.number_field :length, class: 'form-control', step: 'any' %>
-
-  <%= f.label :width %>
-  <%= f.number_field :width, class: 'form-control', step: 'any' %>
-
-  <%= f.label :height %>
-  <%= f.number_field :height, class: 'form-control', step: 'any' %>
-
-  <%= f.label :meshsize %>
-  <%= f.number_field :meshsize, class: 'form-control', step: 'any' %>
-
-  <%= f.label :material %>
-  <%= f.text_field :material, class: 'form-control' %>
-
-  <%= f.label :modulus %>
-  <%= f.number_field :modulus, class: 'form-control', step: 'any' %>
-
-  <%= f.label :poisson %>
-  <%= f.number_field :poisson, class: 'form-control', step: 'any' %>
-
-  <%= f.label :density %>
-  <%= f.number_field :density, class: 'form-control', step: 'any' %>
-
-  <%= f.label :load %>
-  <%= f.number_field :load, class: 'form-control', step: 'any' %>
-
-  <%= f.submit yield(:button_text), class: "btn btn-primary" %>
+  <div class="row">
+    <div class="col-md-9">
+      <%= render 'shared/error_messages' %>
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <strong>Name</strong>
+        </div>
+        <table class="table">
+          <tbody>
+            <tr><td><%= f.text_field :name, class: 'form-control' %></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-md-3">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <strong>Dimensions</strong>
+        </div>
+        <table class="table">
+          <tbody>
+            <tr><td>Length</td><td><%= f.text_field :length, class: 'form-control' %></td><td>m</td></tr>
+            <tr><td>Width</td><td><%= f.text_field :width, class: 'form-control' %></td><td>m</td></tr>
+            <tr><td>Height</td><td><%= f.text_field :height, class: 'form-control' %></td><td>m</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <strong>Boundary Conditions</strong>
+        </div>
+        <table class="table">
+          <tbody>
+            <tr><td>Load</td><td><%= f.text_field :load, class: 'form-control' %></td><td>N</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <strong>Material Properties</strong>
+        </div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Material Name</th>
+              <th>Elastic Modulus (Pa)</th>
+              <th>Poisson's Ratio</th>
+              <th>Density (kg/m<sup>3</sup>)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><%= f.text_field :material, class: 'form-control' %></td>
+              <td><%= f.text_field :modulus, class: 'form-control' %></td>
+              <td><%= f.text_field :poisson, class: 'form-control' %></td>
+              <td><%= f.text_field :density, class: 'form-control' %></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <strong>Mesh Properties</strong>
+        </div>
+        <table class="table">
+          <tbody>
+            <tr><td>Global Mesh Size</td><td><%= f.text_field :meshsize, class: 'form-control' %></td><td>m</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <%= f.submit yield(:button_text), class: "btn btn-primary" %>
+    </div>
+  </div>
 <% end %>

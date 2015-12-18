@@ -48,7 +48,6 @@ class BeamsController < ApplicationController
       flash[:success] = "Successully updated #{@beam.name}."
       redirect_to @beam
     else
-      flash[:danger] = "Problem updating #{@beam.name}."
       render 'edit'
     end
   end

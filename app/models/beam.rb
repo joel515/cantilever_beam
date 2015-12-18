@@ -106,10 +106,12 @@ class Beam < ActiveRecord::Base
   end
 
   # Formulate a file/directory prefix using the beam's name by removing all
-  # characters that ar not and converting to lower case.
+  # spaces and converting to lower case.
+  # TODO: Maybe add ID to prefix?  Can then strip name of characters that aren't
+  # allowed in GMSH and Elmer, and still ensure some type of uniqueness.
   def prefix
-    # name.gsub(/\s+/, "").downcase
-    name.gsub(/\W/, "").downcase
+    name.gsub(/\s+/, "").downcase
+    # name.gsub(/\W/, "").downcase
   end
 
   def clean
@@ -181,11 +183,13 @@ class Beam < ActiveRecord::Base
     jobpath = Pathname.new(jobdir)
     data_file = jobpath + "#{prefix}.dat"
 
+    # TODO: Add error checking for file
     results = []
     File.readlines(data_file).map do |line|
       results = line.split.map(&:to_f)
     end
 
+    # TODO: Add error checking for displacement results
     d_fem = -results[0].abs
 
     sigma_fem = 0
@@ -200,6 +204,7 @@ class Beam < ActiveRecord::Base
   end
 
   def error
+    # TODO: Add error checking for displacement results
     d_error = (fem_results[:d_fem] - d) / d * 100
 
     sigma_error = 0
@@ -274,6 +279,8 @@ class Beam < ActiveRecord::Base
           end
           f.puts t.value
 
+          # If cannot find a successful error code, set status to "Failed" and
+          # exit.
           if t.value.to_s.split[-1].to_i != 0
             self.status = JOB_STATUS[:f]
             self.save
@@ -293,6 +300,8 @@ class Beam < ActiveRecord::Base
           end
           f.puts t.value
 
+          # If cannot find a successful error code, set status to "Failed" and
+          # exit.
           if t.value.to_s.split[-1].to_i != 0
             self.status = JOB_STATUS[:f]
             self.save
@@ -411,19 +420,16 @@ class Beam < ActiveRecord::Base
       `#{cmd}`
     }
 
+    # Set the status to "Submitted" and save to database.
     self.status = JOB_STATUS[:b]
     self.save
   end
 
   def generate_results
-    # TODO: Ensure wireframe beam is undeformed.
-    # TODO: Make scale a percentage of total deformation.
     # TODO: Give a warning when beam reaches nonlinear territory.
-    # TODO: Capture max stress and scale legend accordingly
+    # TODO: Create a separate PBS job for this.
     # TODO: Create another webgl/html file to displace von Mises and displ.
     # TODO: Implement buttons to choose between principal, von Mises, and displ.
-    # TODO: Make scale variable, dependent upon displ, length, and load.
-
     file_prefix = prefix
     jobpath = Pathname.new(jobdir)
     results_dir = jobpath + jobpath.basename
@@ -464,8 +470,11 @@ class Beam < ActiveRecord::Base
       # show data in view
       f.puts "warpByVector1Display = Show(warpByVector1, renderView1)"
 
-            # change representation type
+      # change representation type
       f.puts "warpByVector1Display.SetRepresentationType('Wireframe')"
+
+      # Set opacity (Opacity not working with WebGL)
+      # f.puts "warpByVector1Display.Opacity = 0.1"
 
       # set active source
       f.puts "SetActiveSource(beamvtu)"
@@ -596,6 +605,7 @@ class Beam < ActiveRecord::Base
     }
   end
 
+  # Gets the Paraview generated WebGL file - returns empty string if nonexistant.
   def graphics_file
     jobpath = Pathname.new(jobdir)
     results_dir = jobpath + jobpath.basename
