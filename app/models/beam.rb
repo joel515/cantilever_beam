@@ -437,7 +437,7 @@ class Beam < ActiveRecord::Base
     pv_script = results_dir + "#{file_prefix}.py"
     webgl_file = results_dir + "#{file_prefix}.webgl"
     d_fem = fem_results[:d_fem]
-    displ_scale = (load / (d_fem * 1e4)).abs
+    displ_scale = (0.2 * [length, width, height].max / d_fem).abs
     plane_scale = 3.0
     arrow_scale = 0.2 * [length, width, height].max
 
