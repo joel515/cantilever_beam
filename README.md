@@ -13,9 +13,8 @@ The app is intended to be a problem-specific front end for Elmer.  It utilizes
 GMSH for geometry and mesh generation, ElmerGrid for mesh conversion, and
 ElmerSolver for the analysis computation.
 
-Results will be presented quantitatively and as a percent error from hand-
-calculated values.  Future implementations will include a web-based Paraview
-user interface.
+Results are presented quantitatively and as a percent error from hand-
+calculated values.  Additionally, stress and displacement results from Paraview are embedded via WebGL.
 
 Developed by [Joel Kopp](mailto:jkopp@mkei.org) for the [Milwaukee Institute]
 (https://www.mkei.org).
