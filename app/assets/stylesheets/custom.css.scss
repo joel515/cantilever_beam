@@ -152,3 +152,21 @@ input {
     color: $state-danger-text;
   }
 }
+
+iframe {
+  margin-top: 20px;
+  margin-bottom: 20px;
+
+  -moz-border-radius: 6px;
+  -webkit-border-radius: 6px;
+  border-radius: 6px;
+
+  border: 1px solid;
+  color: $gray-dark;
+
+  -moz-box-shadow: 4px 4px 14px #000;
+  -webkit-box-shadow: 4px 4px 14px #000;
+  box-shadow: 4px 4px 14px #000;
+}
+
+

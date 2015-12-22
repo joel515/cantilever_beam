@@ -1,6 +1,7 @@
 class BeamsController < ApplicationController
   before_action :set_beam, only: [:show, :submit, :results, :edit, :update,
     :destroy, :clean, :copy, :embed]
+  before_action :get_displayed_result, only: [:results, :embed]
 
   def index
     if Beam.count > 0
@@ -75,8 +76,8 @@ class BeamsController < ApplicationController
   end
 
   def embed
-    @beam.generate_results if @beam.graphics_file.empty?
-    render layout: false, file: @beam.graphics_file
+    @beam.generate_results if @beam.graphics_file(@result.to_sym).empty?
+    render layout: false, file: @beam.graphics_file(@result.to_sym)
   end
 
   private
@@ -89,5 +90,9 @@ class BeamsController < ApplicationController
 
     def set_beam
       @beam = Beam.find(params[:id])
+    end
+
+    def get_displayed_result
+      @result = params[:result].nil? ? "stress" : params[:result]
     end
 end

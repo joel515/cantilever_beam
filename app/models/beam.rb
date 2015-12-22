@@ -190,7 +190,7 @@ class Beam < ActiveRecord::Base
     end
 
     # TODO: Add error checking for displacement results
-    d_fem = -results[0].abs
+    d_fem = results[0].abs
 
     sigma_fem = 0
     if stress_results_ok?
@@ -205,7 +205,7 @@ class Beam < ActiveRecord::Base
 
   def error
     # TODO: Add error checking for displacement results
-    d_error = (fem_results[:d_fem] - d) / d * 100
+    d_error = (-fem_results[:d_fem] - d) / d * 100
 
     sigma_error = 0
     if stress_results_ok?
@@ -435,11 +435,18 @@ class Beam < ActiveRecord::Base
     results_dir = jobpath + jobpath.basename
     result_file = results_dir + "#{file_prefix}0001.vtu"
     pv_script = results_dir + "#{file_prefix}.py"
-    webgl_file = results_dir + "#{file_prefix}.webgl"
-    d_fem = fem_results[:d_fem]
+    webgl_stress_file = results_dir + "#{file_prefix}_stress.webgl"
+    webgl_displ_file = results_dir + "#{file_prefix}_displ.webgl"
+    d_max = d_fem = fem_results[:d_fem]
+    d_min = 0.0
     displ_scale = (0.2 * [length, width, height].max / d_fem).abs
     plane_scale = 3.0
     arrow_scale = 0.2 * [length, width, height].max
+
+    if d_max < 0
+      d_min = d_max
+      d_max = 0.0
+    end
 
     # Generate the Paraview batch Python file.
     File.open(pv_script, 'w') do |f|
@@ -448,7 +455,7 @@ class Beam < ActiveRecord::Base
       #### disable automatic camera reset on 'Show'
       f.puts "paraview.simple._DisableFirstRenderCameraReset()"
 
-      # create a new 'XML Unstructured Grid Reader'
+      # Import the deformed beam geometry and data
       f.puts "beamvtu = XMLUnstructuredGridReader(FileName=[\"#{result_file}\"])"
       f.puts "beamvtu.CellArrayStatus = ['GeometryIds']"
       f.puts "beamvtu.PointArrayStatus = ['stress_xx', 'stress_yy', 'stress_zz', 'stress_xy', 'stress_yz', 'stress_xz', 'vonmises', 'displacement']"
@@ -456,62 +463,42 @@ class Beam < ActiveRecord::Base
       # get active view
       f.puts "renderView1 = GetActiveViewOrCreate('RenderView')"
 
-      # reset view to fit data
-      f.puts "renderView1.ResetCamera()"
-
-      # create a new 'Warp By Vector'
+      # Create a new 'Warp By Vector' to display undeformed mesh.  Geometry comes
+      # into into Paraview already displaced.  Set scale factor to -1.0 to back
+      # out undeformed geometry.
       f.puts "warpByVector1 = WarpByVector(Input=beamvtu)"
       f.puts "warpByVector1.Vectors = ['POINTS', 'displacement']"
-
-      # Geometry comes into Paraview already displaced.
-      # Subtract 1 from scale to get true scale.
       f.puts "warpByVector1.ScaleFactor = -1.0"
-
-      # show data in view
       f.puts "warpByVector1Display = Show(warpByVector1, renderView1)"
-
-      # change representation type
       f.puts "warpByVector1Display.SetRepresentationType('Wireframe')"
 
-      # Set opacity (Opacity not working with WebGL)
-      # f.puts "warpByVector1Display.Opacity = 0.1"
-
       # set active source
-      f.puts "SetActiveSource(beamvtu)"
+      #f.puts "SetActiveSource(beamvtu)"
 
-            # create a new 'Warp By Vector'
+      # Create a new 'Warp By Vector' to display deformed geometry.  Geometry comes
+      # into into Paraview already displaced.  Subtract 1 from scale to get true
+      # scale.
       f.puts "warpByVector2 = WarpByVector(Input=beamvtu)"
       f.puts "warpByVector2.Vectors = ['POINTS', 'displacement']"
-
-      # Geometry comes into Paraview already displaced.
-      # Subtract 1 from scale to get true scale.
       f.puts "warpByVector2.ScaleFactor = #{displ_scale - 1}"
-
-      # show data in view"
       f.puts "warpByVector2Display = Show(warpByVector2, renderView1)"
-
-      # hide data in view
       f.puts "Hide(beamvtu, renderView1)"
 
-      # set scalar coloring
+      # Set up the legend
       f.puts "ColorBy(warpByVector2Display, ('POINTS', 'stress_zz'))"
-
-      # rescale color and/or opacity maps used to include current data range
       f.puts "warpByVector2Display.RescaleTransferFunctionToDataRange(True)"
-
-      # show color bar/color legend
       f.puts "warpByVector2Display.SetScalarBarVisibility(renderView1, True)"
 
-      # get color transfer function/color map for 'stresszz'
+      # Get and modify the stress color map.
       f.puts "stresszzLUT = GetColorTransferFunction('stresszz')"
       f.puts "stresszzLUT.LockDataRange = 0"
       f.puts "stresszzLUT.InterpretValuesAsCategories = 0"
       f.puts "stresszzLUT.ShowCategoricalColorsinDataRangeOnly = 0"
       f.puts "stresszzLUT.RescaleOnVisibilityChange = 0"
       f.puts "stresszzLUT.EnableOpacityMapping = 0"
-      f.puts "stresszzLUT.RGBPoints = [-#{sigma_max}, 0.231373, 0.298039, 0.752941, 3.7439167499542236e-05, 0.865003, 0.865003, 0.865003, #{sigma_max}, 0.705882, 0.0156863, 0.14902]"
+      f.puts "stresszzLUT.RGBPoints = [-#{sigma_max}, 0.231373, 0.298039, 0.752941, 0.0, 0.865003, 0.865003, 0.865003, #{sigma_max}, 0.705882, 0.0156863, 0.14902]"
       f.puts "stresszzLUT.UseLogScale = 0"
-      f.puts "stresszzLUT.ColorSpace = 'Diverging'"
+      f.puts "stresszzLUT.ColorSpace = 'Lab'"
       f.puts "stresszzLUT.UseBelowRangeColor = 0"
       f.puts "stresszzLUT.BelowRangeColor = [0.0, 0.0, 0.0]"
       f.puts "stresszzLUT.UseAboveRangeColor = 0"
@@ -527,22 +514,15 @@ class Beam < ActiveRecord::Base
       f.puts "stresszzLUT.Annotations = []"
       f.puts "stresszzLUT.ActiveAnnotatedValues = []"
       f.puts "stresszzLUT.IndexedColors = []"
-
-      # Apply a preset using its name. Note this may not work as expected when presets have duplicate names.
       f.puts "stresszzLUT.ApplyPreset('Cool to Warm (Extended)', True)"
 
-      # get opacity transfer function/opacity map for 'stresszz'
+      # Get and modify the stress opacity map.
       f.puts "stresszzPWF = GetOpacityTransferFunction('stresszz')"
       f.puts "stresszzPWF.Points = [-#{sigma_max}, 0.0, 0.5, 0.0, #{sigma_max}, 1.0, 0.5, 0.0]"
       f.puts "stresszzPWF.AllowDuplicateScalars = 1"
       f.puts "stresszzPWF.ScalarRangeInitialized = 1"
 
-
-
-      # # Properties modified on renderView1.AxesGrid
-      # f.puts "renderView1.AxesGrid.Visibility = 1"
-
-      # create a new 'Plane'
+      # Create a plane to represent the wall bc visually.
       f.puts "plane1 = Plane()"
       f.puts "plane1.Origin = [0.0, 0.0, 0.0]"
       f.puts "plane1.Point1 = [#{width}, 0.0, 0.0]"
@@ -550,19 +530,13 @@ class Beam < ActiveRecord::Base
       f.puts "plane1.XResolution = 1"
       f.puts "plane1.YResolution = 1"
 
-      # show data in view
+      # Show the plane and modify its properties.
       f.puts "plane1Display = Show(plane1, renderView1)"
-
-      # Properties modified on plane1Display
       f.puts "plane1Display.Scale = [#{plane_scale}, #{plane_scale}, 1.0]"
-
-      # Properties modified on plane1Display
       f.puts "plane1Display.Position = [#{(1 - plane_scale) * width / 2}, #{(1 - plane_scale) * height / 2}, 0.0]"
-
-      # change solid color
       f.puts "plane1Display.DiffuseColor = [0.0, 0.0, 0.682]"
 
-      # create a new 'Arrow'
+      # Create an arrow to represent the load visually.
       f.puts "arrow1 = Arrow()"
       f.puts "arrow1.TipResolution = 50"
       f.puts "arrow1.TipRadius = 0.1"
@@ -571,31 +545,82 @@ class Beam < ActiveRecord::Base
       f.puts "arrow1.ShaftRadius = 0.03"
       f.puts "arrow1.Invert = 1"
 
-      # show data in view
+      # Show the arrow and modify its properties.
       f.puts "arrow1Display = Show(arrow1, renderView1)"
-
-      # change solid color
       f.puts "arrow1Display.DiffuseColor = [1.0, 0.0, 0.0]"
-
-      # Properties modified on arrow1Display
       f.puts "arrow1Display.Orientation = [0.0, 0.0, 90.0]"
-
-      # Properties modified on arrow1Display
-      f.puts "arrow1Display.Position = [#{width / 2}, #{height + displ_scale * d_fem}, #{length}]"
-
-      # Properties modified on arrow1Display
+      f.puts "arrow1Display.Position = [#{width / 2}, #{height - displ_scale * d_fem}, #{length}]"
       f.puts "arrow1Display.Scale = [#{arrow_scale}, #{arrow_scale}, #{arrow_scale}]"
 
-      # Position the legend.
+      # Position the legend on the bottom of the window.
       f.puts "sb = GetScalarBar(stresszzLUT, GetActiveView())"
       f.puts "sb.Orientation = 'Horizontal'"
       f.puts "sb.Position = [0.3, 0.05]"
 
-      # reset view to fit data
+      # Reset the view to fit data.
       f.puts "renderView1.ResetCamera()"
 
-      # export view
-      f.puts "ExportView(\"#{webgl_file}\", view=renderView1)"
+      # Save the WebGL file.
+      f.puts "ExportView(\"#{webgl_stress_file}\", view=renderView1)"
+
+      # set active source
+f.puts "SetActiveSource(warpByVector2)"
+f.puts "warpByVector2Display.SetScalarBarVisibility(renderView1, False)"
+f.puts "Render()"
+
+# set scalar coloring
+f.puts "ColorBy(warpByVector2Display, ('POINTS', 'displacement'))"
+
+# rescale color and/or opacity maps used to include current data range
+f.puts "warpByVector2Display.RescaleTransferFunctionToDataRange(True)"
+
+# show color bar/color legend
+f.puts "warpByVector2Display.SetScalarBarVisibility(renderView1, True)"
+
+# get color transfer function/color map for 'displacement'
+f.puts "displacementLUT = GetColorTransferFunction('displacement')"
+f.puts "displacementLUT.LockDataRange = 0"
+f.puts "displacementLUT.InterpretValuesAsCategories = 0"
+f.puts "displacementLUT.ShowCategoricalColorsinDataRangeOnly = 0"
+f.puts "displacementLUT.RescaleOnVisibilityChange = 0"
+f.puts "displacementLUT.EnableOpacityMapping = 0"
+f.puts "displacementLUT.RGBPoints = [#{d_min}, 0.231373, 0.298039, 0.752941, #{(d_max + d_min) / 2}, 0.865003, 0.865003, 0.865003, #{d_max}, 0.705882, 0.0156863, 0.14902]"
+f.puts "displacementLUT.UseLogScale = 0"
+f.puts "displacementLUT.ColorSpace = 'Diverging'"
+f.puts "displacementLUT.UseBelowRangeColor = 0"
+f.puts "displacementLUT.BelowRangeColor = [0.0, 0.0, 0.0]"
+f.puts "displacementLUT.UseAboveRangeColor = 0"
+f.puts "displacementLUT.AboveRangeColor = [1.0, 1.0, 1.0]"
+f.puts "displacementLUT.NanColor = [1.0, 1.0, 0.0]"
+f.puts "displacementLUT.Discretize = 1"
+f.puts "displacementLUT.NumberOfTableValues = 256"
+f.puts "displacementLUT.ScalarRangeInitialized = 1.0"
+f.puts "displacementLUT.HSVWrap = 0"
+f.puts "displacementLUT.VectorComponent = 0"
+f.puts "displacementLUT.VectorMode = 'Magnitude'"
+f.puts "displacementLUT.AllowDuplicateScalars = 1"
+f.puts "displacementLUT.Annotations = []"
+f.puts "displacementLUT.ActiveAnnotatedValues = []"
+f.puts "displacementLUT.IndexedColors = []"
+f.puts "displacementLUT.ApplyPreset('Cool to Warm (Extended)', True)"
+
+# get opacity transfer function/opacity map for 'displacement'
+f.puts "displacementPWF = GetOpacityTransferFunction('displacement')"
+f.puts "displacementPWF.Points = [#{d_min}, 0.0, 0.5, 0.0, #{d_max}, 1.0, 0.5, 0.0]"
+f.puts "displacementPWF.AllowDuplicateScalars = 1"
+f.puts "displacementPWF.ScalarRangeInitialized = 1"
+
+# Position the legend on the bottom of the window.
+      f.puts "sb = GetScalarBar(displacementLUT, GetActiveView())"
+      f.puts "sb.Orientation = 'Horizontal'"
+      f.puts "sb.Position = [0.3, 0.05]"
+
+      # Reset the view to fit data.
+      f.puts "renderView1.ResetCamera()"
+
+      # Save the WebGL file.
+      f.puts "ExportView(\"#{webgl_displ_file}\", view=renderView1)"
+
     end
 
     # Run Python Paraview.
@@ -606,10 +631,16 @@ class Beam < ActiveRecord::Base
   end
 
   # Gets the Paraview generated WebGL file - returns empty string if nonexistant.
-  def graphics_file
+  def graphics_file(type=:stress)
     jobpath = Pathname.new(jobdir)
     results_dir = jobpath + jobpath.basename
     results_file = lambda { |f| f.exist? ? f : "" }
-    results_file.call(results_dir + "#{prefix}.html").to_s
+    if type == :stress
+      results_file.call(results_dir + "#{prefix}_stress.html").to_s
+    elsif type == :displ
+      results_file.call(results_dir + "#{prefix}_displ.html").to_s
+    else
+      return ""
+    end
   end
 end
