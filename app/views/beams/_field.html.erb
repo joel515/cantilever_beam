@@ -1,0 +1,13 @@
+<% if text.nil? %>
+<td><%= object.to_s.capitalize %></td>
+<% else %>
+<td><%= text %></td>
+<% end %>
+<td><%= form.text_field object, class: 'form-control' %></td>
+<td>
+  <%= "<div class=\"styled-select-#{style} blue semi-square\">".html_safe %>
+    <%= form.select (object.to_s<<"_unit").to_sym,
+                    constant.map { |k,v| [v[:text], k.to_s] },
+                    {} %>
+  </div>
+</td>

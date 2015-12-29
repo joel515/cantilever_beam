@@ -85,7 +85,9 @@ class BeamsController < ApplicationController
     def beam_params
       params.require(:beam).permit(:name, :length, :width, :height, :meshsize,
                                    :modulus, :poisson, :density, :material,
-                                   :load)
+                                   :load, :length_unit, :width_unit, :height_unit,
+                                   :meshsize_unit, :modulus_unit, :density_unit,
+                                   :load_unit, :result_unit_system)
     end
 
     def set_beam

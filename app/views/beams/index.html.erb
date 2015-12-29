@@ -11,8 +11,8 @@
       <th>Status</th>
       <th>Results</th>
       <th>Material</th>
-      <th>Load (N)</th>
-      <th>Mesh Size (mm)</th>
+      <th>Load</th>
+      <th>Mesh Size</th>
       <th></th>
     </tr>
   </thead>
@@ -29,8 +29,8 @@
         <% end %>
       </td>
       <td><%= beam.material %></td>
-      <td><%= beam.load %></td>
-      <td><%= beam.meshsize * 1000 %></td>
+      <td><%= number_with_units(beam, :load) %></td>
+      <td><%= number_with_units(beam, :meshsize) %></td>
       <td>
         <div class="btn-group">
           <% if beam.ready? %>

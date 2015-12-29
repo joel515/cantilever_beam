@@ -13,9 +13,14 @@ class Beam < ActiveRecord::Base
   validates :material, presence: true
   validates :load,     presence: true,
                        numericality: { greater_than_or_equal_to: 0 }
-
-  require 'open3'
-  require 'pathname'
+  validates :length_unit,   presence: true
+  validates :width_unit,    presence: true
+  validates :height_unit,   presence: true
+  validates :meshsize_unit, presence: true
+  validates :modulus_unit,  presence: true
+  validates :density_unit,  presence: true
+  validates :load_unit,     presence: true
+  validates :status,        presence: true
 
   JOB_STATUS = {
     u: "Unsubmitted",
@@ -31,7 +36,146 @@ class Beam < ActiveRecord::Base
     b: "Submitted"
   }
 
-  GRAVITY = 9.81
+  GRAVITY = 9.80665
+
+  DIMENSIONAL_UNITS = {
+    m:  { convert: 1,      text: "m" },
+    mm: { convert: 0.001,  text: "mm" },
+    cm: { convert: 0.01,   text: "cm" },
+    in: { convert: 0.0254, text: "in" },
+    ft: { convert: 0.3048, text: "ft" }
+  }
+  FORCE_UNITS = {
+    n:   { convert: 1,                    text: "N" },
+    kn:  { convert: 1000,                 text: "kN" },
+    kgf: { convert: Beam::GRAVITY,        text: "kgf" },
+    lbf: { convert: 4.448221615255,       text: "lbf" },
+    kip: { convert: 4448.221615255,       text: "kip" }
+  }
+  STRESS_UNITS = {
+    pa:  { convert: 1,              text: "Pa" },
+    kpa: { convert: 1e3,            text: "kPa" },
+    mpa: { convert: 1e6,            text: "MPa" },
+    gpa: { convert: 1e9,            text: "GPa" },
+    psi: { convert: 6894.757293178, text: "psi" },
+    ksi: { convert: 6894757.293178, text: "ksi" }
+  }
+  DENSITY_UNITS = {
+    kgm3:     { convert: 1,            text: "kg/m&sup3;".html_safe },
+    tonnemm3: { convert: 1e12,         text: "tonne/mm&sup3;".html_safe },
+    gcm3:     { convert: 1000,         text: "gm/cm&sup3;".html_safe },
+    gm3:      { convert: 0.001,        text: "gm/m&sup3;".html_safe },
+    lbin3:    { convert: 27679.90471019, text: "lb/in&sup3;".html_safe },
+    lbft3:    { convert: 16.01846337395, text: "lb/ft&sup3;".html_safe }
+  }
+  INERTIA_UNITS = {
+    m4:  { convert: 1,         text: "m<sup>4</sup>".html_safe },
+    mm4: { convert: 0.001**4,  text: "mm<sup>4</sup>".html_safe },
+    in4: { convert: 0.0254**4, text: "in<sup>4</sup>".html_safe }
+  }
+  MASS_UNITS = {
+    kg:  { convert: 1,           text: "kg" },
+    lbm: { convert: 1 / 2.20462, text: "lbm" }
+  }
+  TORQUE_UNITS = {
+    nm:   { convert: 1,                       text: "N-m" },
+    nmm:  { convert: 0.001,                   text: "N-mm" },
+    inlb: { convert: 4.448221615255 * 0.0254, text: "in-lbf" },
+    ftlb: { convert: 4.448221615255 * 0.3048, text: "ft-lbf" }
+  }
+  UNIT_DESIGNATION = {
+    name:     nil,
+    length:   DIMENSIONAL_UNITS,
+    width:    DIMENSIONAL_UNITS,
+    height:   DIMENSIONAL_UNITS,
+    meshsize: DIMENSIONAL_UNITS,
+    modulus:  STRESS_UNITS,
+    poisson:  nil,
+    density:  DENSITY_UNITS,
+    material: nil,
+    load:     FORCE_UNITS,
+    inertia:  INERTIA_UNITS,
+    mass:     MASS_UNITS,
+    torque:   TORQUE_UNITS
+  }
+  RESULT_UNITS = {
+    metric_mpa:   { displacement:     DIMENSIONAL_UNITS[:mm],
+                    displacement_fem: DIMENSIONAL_UNITS[:mm],
+                    stress:           STRESS_UNITS[:mpa],
+                    stress_fem:       STRESS_UNITS[:mpa],
+                    force_reaction:   FORCE_UNITS[:n],
+                    inertia:          INERTIA_UNITS[:mm4],
+                    mass:             MASS_UNITS[:kg],
+                    moment_reaction:  TORQUE_UNITS[:nmm],
+                    text:             "Metric (MPa)" },
+    metric_pa:    { displacement:     DIMENSIONAL_UNITS[:m],
+                    displacement_fem: DIMENSIONAL_UNITS[:m],
+                    stress:           STRESS_UNITS[:pa],
+                    stress_fem:       STRESS_UNITS[:pa],
+                    force_reaction:   FORCE_UNITS[:n],
+                    inertia:          INERTIA_UNITS[:m4],
+                    mass:             MASS_UNITS[:kg],
+                    moment_reaction:  TORQUE_UNITS[:nm],
+                    text:             "Metric (Pa)" },
+    imperial_psi: { displacement:     DIMENSIONAL_UNITS[:in],
+                    displacement_fem: DIMENSIONAL_UNITS[:in],
+                    stress:           STRESS_UNITS[:psi],
+                    stress_fem:       STRESS_UNITS[:psi],
+                    force_reaction:   FORCE_UNITS[:lbf],
+                    inertia:          INERTIA_UNITS[:in4],
+                    mass:             MASS_UNITS[:lbm],
+                    moment_reaction:  TORQUE_UNITS[:inlb],
+                    text:             "Imperial (psi)" },
+    imperial_ksi: { displacement:     DIMENSIONAL_UNITS[:in],
+                    displacement_fem: DIMENSIONAL_UNITS[:in],
+                    stress:           STRESS_UNITS[:ksi],
+                    stress_fem:       STRESS_UNITS[:ksi],
+                    force_reaction:   FORCE_UNITS[:kip],
+                    inertia:          INERTIA_UNITS[:in4],
+                    mass:             MASS_UNITS[:lbm],
+                    moment_reaction:  TORQUE_UNITS[:ftlb],
+                    text:             "Imperial (ksi)" }
+  }
+
+  validates_inclusion_of :length_unit,   in: DIMENSIONAL_UNITS.keys.map(&:to_s)
+  validates_inclusion_of :width_unit,    in: DIMENSIONAL_UNITS.keys.map(&:to_s)
+  validates_inclusion_of :height_unit,   in: DIMENSIONAL_UNITS.keys.map(&:to_s)
+  validates_inclusion_of :meshsize_unit, in: DIMENSIONAL_UNITS.keys.map(&:to_s)
+  validates_inclusion_of :modulus_unit,  in: STRESS_UNITS.keys.map(&:to_s)
+  validates_inclusion_of :density_unit,  in: DENSITY_UNITS.keys.map(&:to_s)
+  validates_inclusion_of :load_unit,     in: FORCE_UNITS.keys.map(&:to_s)
+  validates_inclusion_of :status,        in: JOB_STATUS.values
+
+  require 'open3'
+  require 'pathname'
+
+  def unit_text(param, result_units = false)
+    if result_units == false
+      UNIT_DESIGNATION[param][self.send(param.to_s<<"_unit").to_sym][:text] unless
+        UNIT_DESIGNATION[param].nil?
+    else
+      RESULT_UNITS[result_unit_system.to_sym][param][:text]
+    end
+  end
+
+  def stress_units
+    RESULT_UNITS[result_unit_system.to_sym][:stress]
+  end
+
+  def displ_units
+    RESULT_UNITS[result_unit_system.to_sym][:displacement]
+  end
+
+  def convert(param)
+    self.send(param.to_s) * \
+      UNIT_DESIGNATION[param][self.send(param.to_s<<"_unit").to_sym][:convert] \
+      unless UNIT_DESIGNATION[param].nil?
+  end
+
+  def unconvert(param)
+    self.send(param.to_s) / \
+      RESULT_UNITS[result_unit_system.to_sym][param][:convert]
+  end
 
   def running?
     [JOB_STATUS[:e], JOB_STATUS[:r]].include? status
@@ -115,22 +259,24 @@ class Beam < ActiveRecord::Base
   end
 
   def clean
-    jobpath = Pathname.new(jobdir)
-    if jobpath.directory?
-      jobpath.rmtree
-      self.jobdir = ""
-      self.status = JOB_STATUS[:u]
+    if !jobdir.nil?
+      jobpath = Pathname.new(jobdir)
+      if jobpath.directory?
+        jobpath.rmtree
+        self.jobdir = ""
+        self.status = JOB_STATUS[:u]
+      end
     end
   end
 
   # Calculate the beam's bending moment of inertia.
   def inertia
-    width * height**3 / 12
+    convert(:width) * convert(:height)**3 / 12
   end
 
   # Calculate the beam's mass.
   def mass
-    length * width * height * density
+    convert(:length) * convert(:width) * convert(:height) * convert(:density)
   end
 
   # Calculate the beam's weight.
@@ -140,79 +286,110 @@ class Beam < ActiveRecord::Base
 
   # Calculate the beam's flexural stiffness.
   def stiffness
-    modulus * inertia
+    convert(:modulus) * inertia
   end
 
   # Calculate the total force reaction due to load and gravity.
-  def r_total
-    load + weight
+  def force_reaction
+    convert(:load) + weight
   end
 
   # Calculate the total moment reaction due to load and gravity.
-  def m_total
-    -load * length + -weight * length / 2
+  def moment_reaction
+    -convert(:load) * convert(:length) + -weight * convert(:length) / 2
   end
 
   # Calculate the beam end angle due to load and gravity.
   def theta
-    theta1 = load * length**2 / (2 * stiffness) * 180 / Math::PI
-    theta2 = weight * length**2 / (6 * stiffness) * 180 / Math::PI
-    theta1 + theta2
+    theta_load = convert(:load) * convert(:length)**2 / (2 * stiffness) * 180 / Math::PI
+    theta_grav = weight * convert(:length)**2 / (6 * stiffness) * 180 / Math::PI
+    theta_load + theta_grav
   end
 
   # Calculate to total displacement due to load and gravity.
-  def d
-    d1 = -load * length**3 / (3 * stiffness)
-    d2 = -weight * length**3 / (8 * stiffness)
-    d1 + d2
+  def displacement
+    d_load = -convert(:load) * convert(:length)**3 / (3 * stiffness)
+    d_grav = -weight * convert(:length)**3 / (8 * stiffness)
+    d_load + d_grav
   end
 
   # Calculate the maximum pricipal stress.
-  def sigma_max
-    m_total.abs * height / (2 * inertia)
+  def stress
+    moment_reaction.abs * convert(:height) / (2 * inertia)
+  end
+
+  # Check if the .dat.names file has the 'stress_zz' keyword.
+  def displacement_results_ok?
+    jobpath = Pathname.new(jobdir)
+    data_name_file = jobpath + "#{prefix}.dat.names"
+
+    if data_name_file.exist?
+      File.foreach(data_name_file).grep(/max abs: displacement 2/).any?
+    else
+      false
+    end
   end
 
   # Check if the .dat.names file has the 'stress_zz' keyword.
   def stress_results_ok?
     jobpath = Pathname.new(jobdir)
     data_name_file = jobpath + "#{prefix}.dat.names"
-    File.foreach(data_name_file).grep(/stress_zz/).any?
+
+    if data_name_file.exist?
+      File.foreach(data_name_file).grep(/stress_zz/).any?
+    else
+      false
+    end
   end
 
+  # Read the FEM results file and return the data as an array.
   def fem_results
     jobpath = Pathname.new(jobdir)
     data_file = jobpath + "#{prefix}.dat"
 
-    # TODO: Add error checking for file
-    results = []
-    File.readlines(data_file).map do |line|
-      results = line.split.map(&:to_f)
+    if data_file.exist?
+      results = File.readlines(data_file).map { |line| line.split.map(&:to_f) }
+      results[0] unless results.empty? | nil
+    else
+      nil
     end
-
-    # TODO: Add error checking for displacement results
-    d_fem = results[0].abs
-
-    sigma_fem = 0
-    if stress_results_ok?
-      probe_y = results[12]
-      probe_z = results[13]
-      factor = length * height / ((length - probe_z) * (2 * probe_y - height))
-      sigma_fem = factor * results[6].abs
-    end
-
-    Hash[d_fem: d_fem, sigma_fem: sigma_fem]
   end
 
-  def error
-    # TODO: Add error checking for displacement results
-    d_error = (-fem_results[:d_fem] - d) / d * 100
+  # Extract the displacement results from the results file.
+  def displacement_fem
+    results = fem_results
+    (displacement_results_ok? && !results.nil?) ? results[0].abs : nil
+  end
 
-    sigma_error = 0
-    if stress_results_ok?
-      sigma_error = (fem_results[:sigma_fem] - sigma_max) / sigma_max * 100
+  # Extract the stress results from the results file.
+  # Stresses are extracted at the beam midpoint due to singularities at the
+  # wall and boundary condition effects.  This probed stress is then linearly
+  # interpolated to the wall to determine peak stress.
+  def stress_fem
+    results = fem_results
+    if stress_results_ok? && !results.nil?
+      probe_y = results[12]
+      probe_z = results[13]
+      factor = convert(:length) * convert(:height) / \
+        ((convert(:length) - probe_z) * (2 * probe_y - convert(:height)))
+      factor * results[6].abs
+    else
+      nil
     end
+  end
 
-    Hash[d_error: d_error, sigma_error: sigma_error]
+  # Calcaulte the FEM displacement error as a percentage of theory value.
+  # TODO: Remove negative sign - grab unmodified displacement from Elmer.
+  def displacement_error
+    d = displacement
+    (-displacement_fem - d) / d * 100 if (displacement_results_ok? &&
+      !displacement_fem.nil?)
+  end
+
+  # Calcaulte the FEM stress error as a percentage of theory value.
+  def stress_error
+    s = stress
+    (stress_fem - s) / s * 100 if (stress_results_ok? && !stress_fem.nil?)
   end
 
   def submit
@@ -232,29 +409,37 @@ class Beam < ActiveRecord::Base
     result_file = "#{file_prefix}.vtu"
     output_file = "#{file_prefix}.result"
 
-    numels_l = (length / meshsize).to_i
+    l = convert(:length)
+    w = convert(:width)
+    h = convert(:height)
+    ms = convert(:meshsize)
+    e = convert(:modulus)
+    rho = convert(:density)
+    p = convert(:load)
+
+    numels_l = (l / ms).to_i
     if numels_l.odd?
       numels_l += 1
     end
-    numnodes_h = (height / meshsize).to_i + 1
-    numnodes_w = (width / meshsize).to_i
+    numnodes_h = (h / ms).to_i + 1
+    numnodes_w = (w / ms).to_i
     if numnodes_w.even?
       numnodes_w += 1
     end
 
     # Generate the geometry file and mesh params for GMSH.
     File.open(geom_file, 'w') do |f|
-      f.puts "Point(1) = {0, 0, 0, #{meshsize}};"
-      f.puts "Point(2) = {#{width}, 0, 0, #{meshsize}};"
-      f.puts "Point(3) = {#{width}, #{height}, 0, #{meshsize}};"
-      f.puts "Point(4) = {0, #{height}, 0, #{meshsize}};"
+      f.puts "Point(1) = {0, 0, 0, #{ms}};"
+      f.puts "Point(2) = {#{w}, 0, 0, #{ms}};"
+      f.puts "Point(3) = {#{w}, #{h}, 0, #{ms}};"
+      f.puts "Point(4) = {0, #{h}, 0, #{ms}};"
       f.puts "Line(1) = {1, 2};"
       f.puts "Line(2) = {2, 3};"
       f.puts "Line(3) = {3, 4};"
       f.puts "Line(4) = {4, 1};"
       f.puts "Line Loop(5) = {3, 4, 1, 2};"
       f.puts "Plane Surface(6) = {5};"
-      f.puts "Extrude {0, 0, #{length}} {"
+      f.puts "Extrude {0, 0, #{l}} {"
       f.puts "  Surface{6}; Layers{#{numels_l}}; Recombine;"
       f.puts "}"
       f.puts "Surface Loop(29) = {19, 6, 15, 28, 23, 27};"
@@ -377,8 +562,8 @@ class Beam < ActiveRecord::Base
       f.puts "  File Append = False"
       f.puts "  Variable 1 = Displacement 2"
       f.puts "  Operator 1 = max abs"
-      f.puts "  Save Coordinates(1,3) = #{(width.to_f / 2).to_s} #{height} "\
-        "#{(length.to_f / 2).to_s}"
+      f.puts "  Save Coordinates(1,3) = #{(w.to_f / 2).to_s} #{h} "\
+        "#{(l.to_f / 2).to_s}"
       f.puts "End"
       f.puts ""
       f.puts "Equation 1"
@@ -389,14 +574,14 @@ class Beam < ActiveRecord::Base
       f.puts ""
       f.puts "Material 1"
       f.puts "  Name = \"#{material}\""
-      f.puts "  Youngs modulus = #{modulus}"
-      f.puts "  Density = #{density}"
+      f.puts "  Youngs modulus = #{e}"
+      f.puts "  Density = #{rho}"
       f.puts "  Poisson ratio = #{poisson}"
       f.puts "End"
       f.puts ""
       f.puts "Body Force 1"
       f.puts "  Name = \"Gravity\""
-      f.puts "  Stress Bodyforce 2 = $ -#{GRAVITY.to_s} * #{density}"
+      f.puts "  Stress Bodyforce 2 = $ -#{GRAVITY.to_s} * #{rho}"
       f.puts "End"
       f.puts ""
       f.puts "Boundary Condition 1"
@@ -410,7 +595,7 @@ class Beam < ActiveRecord::Base
       f.puts "Boundary Condition 2"
       f.puts "  Target Boundaries(1) = 6"
       f.puts "  Name = \"Mass\""
-      f.puts "  Force 2 = $ -#{load} / #{width} / #{height}"
+      f.puts "  Force 2 = $ -#{p} / #{w} / #{h}"
       f.puts "End"
     end
 
@@ -437,16 +622,27 @@ class Beam < ActiveRecord::Base
     pv_script = results_dir + "#{file_prefix}.py"
     webgl_stress_file = results_dir + "#{file_prefix}_stress.webgl"
     webgl_displ_file = results_dir + "#{file_prefix}_displ.webgl"
-    d_max = d_fem = fem_results[:d_fem]
-    d_min = 0.0
-    displ_scale = (0.2 * [length, width, height].max / d_fem).abs
-    plane_scale = 3.0
-    arrow_scale = 0.2 * [length, width, height].max
 
+    d_conv, d_units = displ_units.values
+    s_conv, s_units = stress_units.values
+
+    d_fem = displacement_fem
+    d_max = displacement / d_conv
+    d_min = 0.0
     if d_max < 0
       d_min = d_max
       d_max = 0.0
     end
+
+    s_max = stress / s_conv
+
+    l = convert(:length)
+    w = convert(:width)
+    h = convert(:height)
+
+    displ_scale = (0.2 * [l, w, h].max / d_fem).abs
+    plane_scale = 3.0
+    arrow_scale = 0.2 * [l, w, h].max
 
     # Generate the Paraview batch Python file.
     File.open(pv_script, 'w') do |f|
@@ -470,10 +666,9 @@ class Beam < ActiveRecord::Base
       f.puts "warpByVector1.Vectors = ['POINTS', 'displacement']"
       f.puts "warpByVector1.ScaleFactor = -1.0"
       f.puts "warpByVector1Display = Show(warpByVector1, renderView1)"
+      f.puts "warpByVector1Display.ColorArrayName = [None, '']"
+      f.puts "warpByVector1Display.ScalarOpacityUnitDistance = 0.04268484912825877"
       f.puts "warpByVector1Display.SetRepresentationType('Wireframe')"
-
-      # set active source
-      #f.puts "SetActiveSource(beamvtu)"
 
       # Create a new 'Warp By Vector' to display deformed geometry.  Geometry comes
       # into into Paraview already displaced.  Subtract 1 from scale to get true
@@ -482,58 +677,52 @@ class Beam < ActiveRecord::Base
       f.puts "warpByVector2.Vectors = ['POINTS', 'displacement']"
       f.puts "warpByVector2.ScaleFactor = #{displ_scale - 1}"
       f.puts "warpByVector2Display = Show(warpByVector2, renderView1)"
+      f.puts "warpByVector2Display.ColorArrayName = [None, '']"
+      f.puts "warpByVector2Display.ScalarOpacityUnitDistance = 0.04268484912825877"
       f.puts "Hide(beamvtu, renderView1)"
 
-      # Set up the legend
-      f.puts "ColorBy(warpByVector2Display, ('POINTS', 'stress_zz'))"
-      f.puts "warpByVector2Display.RescaleTransferFunctionToDataRange(True)"
-      f.puts "warpByVector2Display.SetScalarBarVisibility(renderView1, True)"
+      # Create a new 'Calculator' to scale results to specified units.
+      f.puts "calculator1 = Calculator(Input=warpByVector2)"
+
+      # Scale stress results using the calculator.
+      f.puts "calculator1.ResultArrayName = 'stress_zz (#{s_units})'"
+      f.puts "calculator1.Function = 'stress_zz/#{s_conv}'"
 
       # Get and modify the stress color map.
-      f.puts "stresszzLUT = GetColorTransferFunction('stresszz')"
-      f.puts "stresszzLUT.LockDataRange = 0"
-      f.puts "stresszzLUT.InterpretValuesAsCategories = 0"
-      f.puts "stresszzLUT.ShowCategoricalColorsinDataRangeOnly = 0"
-      f.puts "stresszzLUT.RescaleOnVisibilityChange = 0"
-      f.puts "stresszzLUT.EnableOpacityMapping = 0"
-      f.puts "stresszzLUT.RGBPoints = [-#{sigma_max}, 0.231373, 0.298039, 0.752941, 0.0, 0.865003, 0.865003, 0.865003, #{sigma_max}, 0.705882, 0.0156863, 0.14902]"
-      f.puts "stresszzLUT.UseLogScale = 0"
-      f.puts "stresszzLUT.ColorSpace = 'Lab'"
-      f.puts "stresszzLUT.UseBelowRangeColor = 0"
-      f.puts "stresszzLUT.BelowRangeColor = [0.0, 0.0, 0.0]"
-      f.puts "stresszzLUT.UseAboveRangeColor = 0"
-      f.puts "stresszzLUT.AboveRangeColor = [1.0, 1.0, 1.0]"
-      f.puts "stresszzLUT.NanColor = [1.0, 1.0, 0.0]"
-      f.puts "stresszzLUT.Discretize = 1"
-      f.puts "stresszzLUT.NumberOfTableValues = 256"
-      f.puts "stresszzLUT.ScalarRangeInitialized = 1.0"
-      f.puts "stresszzLUT.HSVWrap = 0"
-      f.puts "stresszzLUT.VectorComponent = 0"
-      f.puts "stresszzLUT.VectorMode = 'Magnitude'"
-      f.puts "stresszzLUT.AllowDuplicateScalars = 1"
-      f.puts "stresszzLUT.Annotations = []"
-      f.puts "stresszzLUT.ActiveAnnotatedValues = []"
-      f.puts "stresszzLUT.IndexedColors = []"
-      f.puts "stresszzLUT.ApplyPreset('Cool to Warm (Extended)', True)"
+      f.puts "stresszz#{s_units}LUT = GetColorTransferFunction('stresszz#{s_units}')"
+      f.puts "stresszz#{s_units}LUT.RGBPoints = [-#{s_max}, 0.231373, 0.298039, 0.752941, 0.0, 0.865003, 0.865003, 0.865003, #{s_max}, 0.705882, 0.0156863, 0.14902]"
+      f.puts "stresszz#{s_units}LUT.ScalarRangeInitialized = 1.0"
+      f.puts "stresszz#{s_units}LUT.ApplyPreset('Cool to Warm (Extended)', True)"
+
+      # Show the calculated results on the warped geometry
+      f.puts "calculator1Display = Show(calculator1, renderView1)"
+      f.puts "calculator1Display.ColorArrayName = ['POINTS', 'stress_zz (#{s_units})']"
+      f.puts "calculator1Display.LookupTable = stresszz#{s_units}LUT"
+      f.puts "calculator1Display.ScalarOpacityUnitDistance = 0.044238274071335064"
+      f.puts "Hide(warpByVector2, renderView1)"
+
+      # Set up and show the legend.
+      f.puts "calculator1Display.SetScalarBarVisibility(renderView1, True)"
+      f.puts "stresszz#{s_units}LUT.RescaleTransferFunction(-#{s_max}, #{s_max})"
 
       # Get and modify the stress opacity map.
-      f.puts "stresszzPWF = GetOpacityTransferFunction('stresszz')"
-      f.puts "stresszzPWF.Points = [-#{sigma_max}, 0.0, 0.5, 0.0, #{sigma_max}, 1.0, 0.5, 0.0]"
-      f.puts "stresszzPWF.AllowDuplicateScalars = 1"
-      f.puts "stresszzPWF.ScalarRangeInitialized = 1"
+      f.puts "stresszz#{s_units}PWF = GetOpacityTransferFunction('stresszz#{s_units}')"
+      f.puts "stresszz#{s_units}PWF.Points = [-#{s_max}, 0.0, 0.5, 0.0, #{s_max}, 1.0, 0.5, 0.0]"
+      f.puts "stresszz#{s_units}PWF.ScalarRangeInitialized = 1"
+      f.puts "stresszz#{s_units}PWF.RescaleTransferFunction(-#{s_max}, #{s_max})"
 
       # Create a plane to represent the wall bc visually.
       f.puts "plane1 = Plane()"
       f.puts "plane1.Origin = [0.0, 0.0, 0.0]"
-      f.puts "plane1.Point1 = [#{width}, 0.0, 0.0]"
-      f.puts "plane1.Point2 = [0.0, #{height}, 0.0]"
+      f.puts "plane1.Point1 = [#{w}, 0.0, 0.0]"
+      f.puts "plane1.Point2 = [0.0, #{h}, 0.0]"
       f.puts "plane1.XResolution = 1"
       f.puts "plane1.YResolution = 1"
 
       # Show the plane and modify its properties.
       f.puts "plane1Display = Show(plane1, renderView1)"
       f.puts "plane1Display.Scale = [#{plane_scale}, #{plane_scale}, 1.0]"
-      f.puts "plane1Display.Position = [#{(1 - plane_scale) * width / 2}, #{(1 - plane_scale) * height / 2}, 0.0]"
+      f.puts "plane1Display.Position = [#{(1 - plane_scale) * w / 2}, #{(1 - plane_scale) * h / 2}, 0.0]"
       f.puts "plane1Display.DiffuseColor = [0.0, 0.0, 0.682]"
 
       # Create an arrow to represent the load visually.
@@ -549,11 +738,11 @@ class Beam < ActiveRecord::Base
       f.puts "arrow1Display = Show(arrow1, renderView1)"
       f.puts "arrow1Display.DiffuseColor = [1.0, 0.0, 0.0]"
       f.puts "arrow1Display.Orientation = [0.0, 0.0, 90.0]"
-      f.puts "arrow1Display.Position = [#{width / 2}, #{height - displ_scale * d_fem}, #{length}]"
+      f.puts "arrow1Display.Position = [#{w / 2}, #{h - displ_scale * d_fem}, #{l}]"
       f.puts "arrow1Display.Scale = [#{arrow_scale}, #{arrow_scale}, #{arrow_scale}]"
 
       # Position the legend on the bottom of the window.
-      f.puts "sb = GetScalarBar(stresszzLUT, GetActiveView())"
+      f.puts "sb = GetScalarBar(stresszz#{s_units}LUT, GetActiveView())"
       f.puts "sb.Orientation = 'Horizontal'"
       f.puts "sb.Position = [0.3, 0.05]"
 
@@ -563,57 +752,38 @@ class Beam < ActiveRecord::Base
       # Save the WebGL file.
       f.puts "ExportView(\"#{webgl_stress_file}\", view=renderView1)"
 
-      # set active source
-f.puts "SetActiveSource(warpByVector2)"
-f.puts "warpByVector2Display.SetScalarBarVisibility(renderView1, False)"
-f.puts "Render()"
+      # Set the active source and turn the legend off (hack to correctly show
+      # the displacement legend).
+      f.puts "SetActiveSource(calculator1)"
+      f.puts "calculator1Display.SetScalarBarVisibility(renderView1, False)"
+      f.puts "Render()"
 
-# set scalar coloring
-f.puts "ColorBy(warpByVector2Display, ('POINTS', 'displacement'))"
+      # Modify the calculator to scale displacement.
+      f.puts "calculator1.ResultArrayName = 'displacement_Y (#{d_units})'"
+      f.puts "calculator1.Function = 'displacement_Y/#{d_conv}'"
 
-# rescale color and/or opacity maps used to include current data range
-f.puts "warpByVector2Display.RescaleTransferFunctionToDataRange(True)"
+      # Set the scalar coloring.
+      f.puts "ColorBy(calculator1Display, ('POINTS', 'displacement_Y (#{d_units})'))"
 
-# show color bar/color legend
-f.puts "warpByVector2Display.SetScalarBarVisibility(renderView1, True)"
+      # Now reshow the legend.
+      f.puts "calculator1Display.SetScalarBarVisibility(renderView1, True)"
 
-# get color transfer function/color map for 'displacement'
-f.puts "displacementLUT = GetColorTransferFunction('displacement')"
-f.puts "displacementLUT.LockDataRange = 0"
-f.puts "displacementLUT.InterpretValuesAsCategories = 0"
-f.puts "displacementLUT.ShowCategoricalColorsinDataRangeOnly = 0"
-f.puts "displacementLUT.RescaleOnVisibilityChange = 0"
-f.puts "displacementLUT.EnableOpacityMapping = 0"
-f.puts "displacementLUT.RGBPoints = [#{d_min}, 0.231373, 0.298039, 0.752941, #{(d_max + d_min) / 2}, 0.865003, 0.865003, 0.865003, #{d_max}, 0.705882, 0.0156863, 0.14902]"
-f.puts "displacementLUT.UseLogScale = 0"
-f.puts "displacementLUT.ColorSpace = 'Diverging'"
-f.puts "displacementLUT.UseBelowRangeColor = 0"
-f.puts "displacementLUT.BelowRangeColor = [0.0, 0.0, 0.0]"
-f.puts "displacementLUT.UseAboveRangeColor = 0"
-f.puts "displacementLUT.AboveRangeColor = [1.0, 1.0, 1.0]"
-f.puts "displacementLUT.NanColor = [1.0, 1.0, 0.0]"
-f.puts "displacementLUT.Discretize = 1"
-f.puts "displacementLUT.NumberOfTableValues = 256"
-f.puts "displacementLUT.ScalarRangeInitialized = 1.0"
-f.puts "displacementLUT.HSVWrap = 0"
-f.puts "displacementLUT.VectorComponent = 0"
-f.puts "displacementLUT.VectorMode = 'Magnitude'"
-f.puts "displacementLUT.AllowDuplicateScalars = 1"
-f.puts "displacementLUT.Annotations = []"
-f.puts "displacementLUT.ActiveAnnotatedValues = []"
-f.puts "displacementLUT.IndexedColors = []"
-f.puts "displacementLUT.ApplyPreset('Cool to Warm (Extended)', True)"
+      # Get the color transfer function for vertical displacement.
+      f.puts "displacementY#{d_units}LUT = GetColorTransferFunction('displacementY#{d_units}')"
+      f.puts "displacementY#{d_units}LUT.RGBPoints = [#{d_min}, 0.231373, 0.298039, 0.752941, #{(d_max + d_min) / 2}, 0.865003, 0.865003, 0.865003, #{d_max}, 0.705882, 0.0156863, 0.14902]"
+      f.puts "displacementY#{d_units}LUT.ScalarRangeInitialized = 1.0"
+      f.puts "displacementY#{d_units}LUT.ApplyPreset('Cool to Warm (Extended)', True)"
 
-# get opacity transfer function/opacity map for 'displacement'
-f.puts "displacementPWF = GetOpacityTransferFunction('displacement')"
-f.puts "displacementPWF.Points = [#{d_min}, 0.0, 0.5, 0.0, #{d_max}, 1.0, 0.5, 0.0]"
-f.puts "displacementPWF.AllowDuplicateScalars = 1"
-f.puts "displacementPWF.ScalarRangeInitialized = 1"
+      # Get the opacity transfer function for vertical displacement.
+      f.puts "displacementY#{d_units}PWF = GetOpacityTransferFunction('displacementY#{d_units}')"
+      f.puts "displacementY#{d_units}PWF.Points = [#{d_min}, 0.0, 0.5, 0.0, #{d_max}, 1.0, 0.5, 0.0]"
+      f.puts "displacementY#{d_units}PWF.ScalarRangeInitialized = 1"
 
-# Position the legend on the bottom of the window.
-      f.puts "sb = GetScalarBar(displacementLUT, GetActiveView())"
+      # Position the legend on the bottom of the window.
+      f.puts "sb = GetScalarBar(displacementY#{d_units}LUT, GetActiveView())"
       f.puts "sb.Orientation = 'Horizontal'"
       f.puts "sb.Position = [0.3, 0.05]"
+      f.puts "sb.ComponentTitle = ''"
 
       # Reset the view to fit data.
       f.puts "renderView1.ResetCamera()"

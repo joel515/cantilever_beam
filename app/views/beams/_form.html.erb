@@ -1,7 +1,6 @@
 <%= form_for(@beam) do |f| %>
-
   <div class="row">
-    <div class="col-md-9">
+    <div class="col-md-12">
       <%= render 'shared/error_messages' %>
       <div class="panel panel-default">
         <div class="panel-heading">
@@ -16,16 +15,25 @@
     </div>
   </div>
   <div class="row">
-    <div class="col-md-3">
+    <div class="col-md-6">
       <div class="panel panel-default">
         <div class="panel-heading">
           <strong>Dimensions</strong>
         </div>
         <table class="table">
           <tbody>
-            <tr><td>Length</td><td><%= f.text_field :length, class: 'form-control' %></td><td>m</td></tr>
-            <tr><td>Width</td><td><%= f.text_field :width, class: 'form-control' %></td><td>m</td></tr>
-            <tr><td>Height</td><td><%= f.text_field :height, class: 'form-control' %></td><td>m</td></tr>
+            <tr>
+              <%= render 'field', form: f, object: :length, text: nil,
+              constant: Beam::DIMENSIONAL_UNITS, style: "default" %>
+            </tr>
+            <tr>
+              <%= render 'field', form: f, object: :width, text: nil, constant:
+              Beam::DIMENSIONAL_UNITS, style: "default" %>
+            </tr>
+            <tr>
+              <%= render 'field', form: f, object: :height, text: nil,
+              constant: Beam::DIMENSIONAL_UNITS, style: "default" %>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -35,31 +43,9 @@
         </div>
         <table class="table">
           <tbody>
-            <tr><td>Load</td><td><%= f.text_field :load, class: 'form-control' %></td><td>N</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-    <div class="col-md-6">
-      <div class="panel panel-default">
-        <div class="panel-heading">
-          <strong>Material Properties</strong>
-        </div>
-        <table class="table">
-          <thead>
             <tr>
-              <th>Material Name</th>
-              <th>Elastic Modulus (Pa)</th>
-              <th>Poisson's Ratio</th>
-              <th>Density (kg/m<sup>3</sup>)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><%= f.text_field :material, class: 'form-control' %></td>
-              <td><%= f.text_field :modulus, class: 'form-control' %></td>
-              <td><%= f.text_field :poisson, class: 'form-control' %></td>
-              <td><%= f.text_field :density, class: 'form-control' %></td>
+              <%= render 'field', form: f, object: :load, text: nil, constant:
+              Beam::FORCE_UNITS, style: "default" %>
             </tr>
           </tbody>
         </table>
@@ -70,7 +56,59 @@
         </div>
         <table class="table">
           <tbody>
-            <tr><td>Global Mesh Size</td><td><%= f.text_field :meshsize, class: 'form-control' %></td><td>m</td></tr>
+            <tr>
+              <%= render 'field', form: f, object: :meshsize, text:
+              "Global Mesh Size", constant: Beam::DIMENSIONAL_UNITS, style:
+              "default" %>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <strong>Material Properties</strong>
+        </div>
+        <table class="table">
+          <tbody>
+            <tr>
+              <td>Material Name</td>
+              <td><%= f.text_field :material, class: 'form-control' %></td>
+              <td></td>
+            </tr>
+            <tr>
+              <%= render 'field', form: f, object: :modulus, text:
+              "Elastic Modulus", constant: Beam::STRESS_UNITS, style:
+              "default" %>
+            </tr>
+            <tr>
+              <td>Poisson's Ratio</td>
+              <td><%= f.text_field :poisson, class: 'form-control' %></td>
+              <td></td>
+            </tr>
+            <tr>
+              <%= render 'field', form: f, object: :density, text: nil,
+              constant: Beam::DENSITY_UNITS, style: "density" %>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <strong>Units</strong>
+        </div>
+        <table class="table">
+          <tbody>
+            <tr>
+              <td>Result Unit System:</td>
+              <td>
+                <div class="styled-select-system blue semi-square">
+                  <%= f.select :result_unit_system,
+                  Beam::RESULT_UNITS.map { |k,v| [v[:text], k.to_s] }, {} %>
+                </div>
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>

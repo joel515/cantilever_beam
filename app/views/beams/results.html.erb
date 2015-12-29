@@ -8,15 +8,49 @@
       </div>
       <table class="table">
         <tbody>
-          <tr><td>Length</td><td><%= @beam.length * 1000 %> mm</td></tr>
-          <tr><td>Width</td><td><%= @beam.width * 1000 %> mm</td></tr>
-          <tr><td>Height</td><td><%= @beam.height * 1000 %> mm</td></tr>
-          <tr><td>Material</td><td><%= @beam.material %></td></tr>
-          <tr><td>&nbsp;&nbsp;- Modulus of Elasticity</td><td><%= @beam.modulus / 1000000 %> MPa</td></tr>
-          <tr><td>&nbsp;&nbsp;- Poisson's Ratio</td><td><%= @beam.poisson %></td></tr>
-          <tr><td>&nbsp;&nbsp;- Density</td><td><%= @beam.density / 1000 %> g/mm<sup>3</sup></td></tr>
-          <tr><td>End Load</td><td><%= @beam.load %> N</td></tr>
-          <tr><td>Hexogonal Mesh Size</td><td><%= @beam.meshsize * 1000 %> mm</td></tr>
+          <tr>
+            <td>Length</td>
+            <td><%= number_with_units(@beam,
+                                      :length) %></td>
+          </tr>
+          <tr>
+            <td>Width</td>
+            <td><%= number_with_units(@beam,
+                                      :width) %></td>
+          </tr>
+          <tr>
+            <td>Height</td>
+            <td><%= number_with_units(@beam,
+                                      :height) %></td>
+          </tr>
+          <tr>
+            <td>Material</td>
+            <td><%= @beam.material %></td>
+          </tr>
+          <tr>
+            <td>&nbsp;&nbsp;&bull; Modulus of Elasticity</td>
+            <td><%= number_with_units(@beam,
+                                      :modulus) %></td>
+          </tr>
+          <tr>
+            <td>&nbsp;&nbsp;&bull; Poisson's Ratio</td>
+            <td><%= @beam.poisson %></td>
+          </tr>
+          <tr>
+            <td>&nbsp;&nbsp;&bull; Density</td>
+            <td><%= number_with_units(@beam,
+                                      :density) %></td>
+          </tr>
+          <tr>
+            <td>End Load</td>
+            <td><%= number_with_units(@beam,
+                                      :load) %></td>
+          </tr>
+          <tr>
+            <td>Hexogonal Mesh Size</td>
+            <td><%= number_with_units(@beam,
+                                      :meshsize) %></td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -26,13 +60,47 @@
       </div>
       <table class="table">
         <tbody>
-          <tr><td>Bending Moment of Inertia</td><td><%= "%.3E" % @beam.inertia %> mm<sup>4</sup></td></tr>
-          <tr><td>Mass</td><td><%= "%.1f" % @beam.mass %> kg</tr>
-          <tr><td>Reactive Force</td><td><%= "%.0f" % @beam.r_total %> N</tr>
-          <tr><td>Reactive Moment</td><td><%= "%.0f" % @beam.m_total %> N-m</tr>
-          <tr><td>Maximum Angle</td><td><%= "%.3f" % @beam.theta %>&#176;</tr>
-          <tr><td>Maximum Displacement</td><td><%= "%.3f" % (@beam.d * 1e3) %> mm</tr>
-          <tr><td>Maximum Principal Stress</td><td><%= "%.3f" % (@beam.sigma_max / 1e6) %> MPa</tr>
+          <tr>
+            <td>Bending Moment of Inertia</td>
+            <td><%= number_with_units(@beam,
+                                      :inertia,
+                                      is_result: true) %></td>
+          </tr>
+          <tr>
+            <td>Mass</td>
+            <td><%= number_with_units(@beam,
+                                      :mass,
+                                      is_result: true) %></td>
+          </tr>
+          <tr>
+            <td>Reactive Force</td>
+            <td><%= number_with_units(@beam,
+                                      :force_reaction,
+                                      is_result: true) %></td>
+          </tr>
+          <tr>
+            <td>Reactive Moment</td>
+            <td><%= number_with_units(@beam,
+                                      :moment_reaction,
+                                      is_result: true) %></td>
+          </tr>
+          <tr>
+            <td>Maximum Angle</td>
+            <td><%= number_with_precision(@beam.theta,
+                                          precision: 3,
+                                          significant: true) %>&#176;</tr>
+          <tr>
+            <td>Maximum Displacement</td>
+            <td><%= number_with_units(@beam,
+                                      :displacement,
+                                      is_result: true) %></td>
+          </tr>
+          <tr>
+            <td>Maximum Principal Stress</td>
+            <td><%= number_with_units(@beam,
+                                      :stress,
+                                      is_result: true) %></td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -54,36 +122,68 @@
         <tbody>
           <tr>
             <td>&delta;<sub>y</sub></td>
-            <td><%= "%.3f" % (-@beam.fem_results[:d_fem] * 1e3) %> mm</td>
-            <td><%= "%.3f" % (@beam.d * 1e3) %> mm</td>
             <td>
-              <% if @beam.error[:d_error] <= 5 %>
-                <%= content_tag(:font, "%.2f%" % @beam.error[:d_error], color: "green") %>
-              <% elsif @beam.error[:d_error] <= 10 %>
-                <%= content_tag(:font, "%.2f%" % @beam.error[:d_error], color: "orange") %>
+              <% if @beam.displacement_results_ok? &&
+                !@beam.displacement_fem.nil?%>
+                <%= "-" + number_with_units(@beam,
+                                            :displacement_fem,
+                                            is_result: true) %>
               <% else %>
-                <%= content_tag(:font, "%.2f%" % @beam.error[:d_error], color: "red") %>
+                <%= "N/A" %>
+              <% end %>
+            </td>
+            <td><%= number_with_units(@beam,
+                                      :displacement,
+                                      is_result: true) %></td>
+            <td>
+              <% if @beam.displacement_results_ok? &&
+                !@beam.displacement_error.nil? %>
+                <% if @beam.displacement_error.abs <= 5 %>
+                  <%= content_tag(:font,
+                                  "%.2f%" % @beam.displacement_error,
+                                  color: "green") %>
+                <% elsif @beam.displacement_error.abs <= 10 %>
+                  <%= content_tag(:font,
+                                  "%.2f%" % @beam.displacement_error,
+                                  color: "orange") %>
+                <% else %>
+                  <%= content_tag(:font,
+                                  "%.2f%" % @beam.displacement_error,
+                                  color: "red") %>
+                <% end %>
+              <% else %>
+                <%= "N/A" %>
               <% end %>
             </td>
           </tr>
           <tr>
             <td>&sigma;<sub>33</sub></td>
             <td>
-              <% if @beam.stress_results_ok? %>
-                <%= "%.3f" % (@beam.fem_results[:sigma_fem] / 1e6) %> MPa
+              <% if @beam.stress_results_ok? && !@beam.stress_fem.nil?%>
+                <%= number_with_units(@beam,
+                                      :stress_fem,
+                                      is_result: true) %>
               <% else %>
                 <%= "N/A" %>
               <% end %>
             </td>
-            <td><%= "%.3f" % (@beam.sigma_max / 1e6) %> MPa</td>
+            <td><%= number_with_units(@beam,
+                                      :stress,
+                                      is_result: true) %></td>
             <td>
-              <% if @beam.stress_results_ok? %>
-                <% if @beam.error[:sigma_error] <= 5 %>
-                  <%= content_tag(:font, "%.2f%" % @beam.error[:sigma_error], color: "green") %>
-                <% elsif @beam.error[:sigma_error] <= 10 %>
-                  <%= content_tag(:font, "%.2f%" % @beam.error[:sigma_error], color: "orange") %>
+              <% if @beam.stress_results_ok? && !@beam.stress_error.nil? %>
+                <% if @beam.stress_error.abs <= 5 %>
+                  <%= content_tag(:font,
+                                  "%.2f%" % @beam.stress_error,
+                                  color: "green") %>
+                <% elsif @beam.error[:s_error].abs <= 10 %>
+                  <%= content_tag(:font,
+                                  "%.2f%" % @beam.error[:s_error],
+                                  color: "orange") %>
                 <% else %>
-                  <%= content_tag(:font, "%.2f%" % @beam.error[:sigma_error], color: "red") %>
+                  <%= content_tag(:font,
+                                  "%.2f%" % @beam.error[:s_error],
+                                  color: "red") %>
                 <% end %>
               <% else %>
                 <%= "N/A" %>
@@ -108,7 +208,7 @@
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'View Stress' %>
       <%= link_to "<span class='glyphicon glyphicon-eye-open'></span> "\
-          "&delta;<sub>mag</sub>".html_safe,
+          "&delta;<sub>y</sub>".html_safe,
         results_beam_path(@beam, result: "displ"),
         class: "btn btn-primary",
         data: { toggle: 'tooltip', placement: 'top' },
@@ -121,7 +221,7 @@
   <% if @beam.ready? %>
     <%= button(@beam, :submit) %>
   <% else %>
-    <%= button(@beam,  :clean) %>
+    <%= button(@beam, :clean) %>
   <% end %>
   <%= button(@beam, :edit) %>
   <%= button(@beam, :copy) %>

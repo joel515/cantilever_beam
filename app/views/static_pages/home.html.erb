@@ -1,9 +1,9 @@
 <div class="center jumbotron">
   <h1>Cantilever Beam Sim App</h1>
-
   <h2>
-    No beams currently exist.  Click below to create one...
+    <%= "#{pluralize(Beam.count, 'beam')} currently " \
+    "#{unpluralize_without_count(Beam.count, 'exist')}.  " \
+    "Click below to create one..." %>
   </h2>
-
   <%= link_to "Create a Beam!", create_path, class: "btn btn-lg btn-primary" %>
 </div>

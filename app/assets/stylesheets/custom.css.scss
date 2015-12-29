@@ -169,4 +169,69 @@ iframe {
   box-shadow: 4px 4px 14px #000;
 }
 
+.styled-select-default {
+   background: url(http://i62.tinypic.com/15xvbd5.png) no-repeat 82% 0;
+   height: 29px;
+   overflow: hidden;
+   width: 75px;
+}
 
+.styled-select-default select {
+   background: transparent;
+   border: none;
+   font-size: 14px;
+   height: 29px;
+   padding: 5px;
+   width: 103px;
+}
+
+.styled-select-density {
+   background: url(http://i62.tinypic.com/15xvbd5.png) no-repeat 90% 0;
+   height: 29px;
+   overflow: hidden;
+   width: 120px;
+}
+
+.styled-select-density select {
+   background: transparent;
+   border: none;
+   font-size: 14px;
+   height: 29px;
+   padding: 5px;
+   width: 148px;
+}
+
+.styled-select-system {
+   background: url(http://i62.tinypic.com/15xvbd5.png) no-repeat 94% 0;
+   height: 29px;
+   overflow: hidden;
+   width: 220px;
+}
+
+.styled-select-system select {
+   background: transparent;
+   border: none;
+   font-size: 14px;
+   height: 29px;
+   padding: 5px;
+   width: 248px;
+}
+.semi-square {
+   -webkit-border-radius: 5px;
+   -moz-border-radius: 5px;
+   border-radius: 5px;
+}
+
+/* -------------------- Colors: Background */
+.slate   { background-color: #ddd; }
+.green   { background-color: #779126; }
+.blue    { background-color: #337ab7; }
+.yellow  { background-color: #eec111; }
+.black   { background-color: #000; }
+
+/* -------------------- Colors: Text */
+.slate select   { color: #000; }
+.green select   { color: #fff; }
+.blue select    { color: #fff; }
+.yellow select  { color: #000; }
+.black select   { color: #fff; }
