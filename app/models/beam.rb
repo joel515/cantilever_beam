@@ -233,7 +233,7 @@ class Beam < ActiveRecord::Base
         if result_file.exist?
           self.status = JOB_STATUS[:c]
         elsif fem_out.exist?
-          if fem_out.read.include?("Error:")
+          if !File.foreach(fem_out).enum_for(:grep, /error/i).first.nil?
             self.status = JOB_STATUS[:f]
           else
             self.status = JOB_STATUS[:r]
@@ -324,7 +324,8 @@ class Beam < ActiveRecord::Base
     data_name_file = jobpath + "#{prefix}.dat.names"
 
     if data_name_file.exist?
-      File.foreach(data_name_file).grep(/max abs: displacement 2/).any?
+      File.foreach(data_name_file).grep(/1: max: displacement 2/).any? &&
+      File.foreach(data_name_file).grep(/2: min: displacement 2/).any?
     else
       false
     end
@@ -336,7 +337,7 @@ class Beam < ActiveRecord::Base
     data_name_file = jobpath + "#{prefix}.dat.names"
 
     if data_name_file.exist?
-      File.foreach(data_name_file).grep(/stress_zz/).any?
+      File.foreach(data_name_file).grep(/8: value: stress_zz/).any?
     else
       false
     end
@@ -355,10 +356,16 @@ class Beam < ActiveRecord::Base
     end
   end
 
-  # Extract the displacement results from the results file.
+  # Extract the displacement results from the results file.  The first entry in
+  # the dat file is maximum y displacement, the second is minimum.  Return the
+  # greater of the two absolute values.
   def displacement_fem
     results = fem_results
-    (displacement_results_ok? && !results.nil?) ? results[0].abs : nil
+    if displacement_results_ok? && !results.nil?
+      results[0].abs > results[1].abs ? results[0] : results[1]
+    else
+      nil
+    end
   end
 
   # Extract the stress results from the results file.
@@ -368,28 +375,28 @@ class Beam < ActiveRecord::Base
   def stress_fem
     results = fem_results
     if stress_results_ok? && !results.nil?
-      probe_y = results[12]
-      probe_z = results[13]
+      probe_y = results[13]
+      probe_z = results[14]
       factor = convert(:length) * convert(:height) / \
         ((convert(:length) - probe_z) * (2 * probe_y - convert(:height)))
-      factor * results[6].abs
+      factor * results[7].abs
     else
       nil
     end
   end
 
   # Calcaulte the FEM displacement error as a percentage of theory value.
-  # TODO: Remove negative sign - grab unmodified displacement from Elmer.
   def displacement_error
     d = displacement
-    (-displacement_fem - d) / d * 100 if (displacement_results_ok? &&
-      !displacement_fem.nil?)
+    d_fem = displacement_fem
+    (d_fem - d) / d * 100 if (displacement_results_ok? && !d_fem.nil?)
   end
 
   # Calcaulte the FEM stress error as a percentage of theory value.
   def stress_error
     s = stress
-    (stress_fem - s) / s * 100 if (stress_results_ok? && !stress_fem.nil?)
+    s_fem = stress_fem
+    (s_fem - s) / s * 100 if (stress_results_ok? && !s_fem.nil?)
   end
 
   def submit
@@ -561,7 +568,8 @@ class Beam < ActiveRecord::Base
       f.puts "  Filename = #{file_prefix}.dat"
       f.puts "  File Append = False"
       f.puts "  Variable 1 = Displacement 2"
-      f.puts "  Operator 1 = max abs"
+      f.puts "  Operator 1 = max"
+      f.puts "  Operator 2 = min"
       f.puts "  Save Coordinates(1,3) = #{(w.to_f / 2).to_s} #{h} "\
         "#{(l.to_f / 2).to_s}"
       f.puts "End"
@@ -613,8 +621,6 @@ class Beam < ActiveRecord::Base
   def generate_results
     # TODO: Give a warning when beam reaches nonlinear territory.
     # TODO: Create a separate PBS job for this.
-    # TODO: Create another webgl/html file to displace von Mises and displ.
-    # TODO: Implement buttons to choose between principal, von Mises, and displ.
     file_prefix = prefix
     jobpath = Pathname.new(jobdir)
     results_dir = jobpath + jobpath.basename
@@ -738,7 +744,7 @@ class Beam < ActiveRecord::Base
       f.puts "arrow1Display = Show(arrow1, renderView1)"
       f.puts "arrow1Display.DiffuseColor = [1.0, 0.0, 0.0]"
       f.puts "arrow1Display.Orientation = [0.0, 0.0, 90.0]"
-      f.puts "arrow1Display.Position = [#{w / 2}, #{h - displ_scale * d_fem}, #{l}]"
+      f.puts "arrow1Display.Position = [#{w / 2}, #{h + displ_scale * d_fem}, #{l}]"
       f.puts "arrow1Display.Scale = [#{arrow_scale}, #{arrow_scale}, #{arrow_scale}]"
 
       # Position the legend on the bottom of the window.

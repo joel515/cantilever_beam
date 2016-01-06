@@ -99,4 +99,28 @@ module BeamsHelper
         title: 'View results'
     end
   end
+
+  def result_table(beam, result)
+    analysis_result = (beam.send(result.to_s<<"_results_ok?") &&
+      !beam.send(result.to_s<<"_fem").nil?) ? number_with_units(beam,
+      (result.to_s<<"_fem").to_sym, is_result: true) : "N/A"
+    theory_result = number_with_units(beam, result, is_result: true)
+
+    error = beam.send(result.to_s<<"_error")
+    if beam.send(result.to_s<<"_results_ok?") && !error.nil?
+      if error.abs <= 5
+        formatted_error = content_tag(:font, "%.2f%" % error, color: "green")
+      elsif error.abs <= 10
+        formatted_error = content_tag(:font, "%.2f%" % error, color: "orange")
+      else
+        formatted_error = content_tag(:font, "%.2f%" % error, color: "red")
+      end
+    else
+      formatted_error = "N/A"
+    end
+
+    "<td>#{analysis_result}</td>" \
+    "<td>#{theory_result}</td>" \
+    "<td>#{formatted_error}</td>".html_safe
+  end
 end

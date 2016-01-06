@@ -122,73 +122,11 @@
         <tbody>
           <tr>
             <td>&delta;<sub>y</sub></td>
-            <td>
-              <% if @beam.displacement_results_ok? &&
-                !@beam.displacement_fem.nil?%>
-                <%= "-" + number_with_units(@beam,
-                                            :displacement_fem,
-                                            is_result: true) %>
-              <% else %>
-                <%= "N/A" %>
-              <% end %>
-            </td>
-            <td><%= number_with_units(@beam,
-                                      :displacement,
-                                      is_result: true) %></td>
-            <td>
-              <% if @beam.displacement_results_ok? &&
-                !@beam.displacement_error.nil? %>
-                <% if @beam.displacement_error.abs <= 5 %>
-                  <%= content_tag(:font,
-                                  "%.2f%" % @beam.displacement_error,
-                                  color: "green") %>
-                <% elsif @beam.displacement_error.abs <= 10 %>
-                  <%= content_tag(:font,
-                                  "%.2f%" % @beam.displacement_error,
-                                  color: "orange") %>
-                <% else %>
-                  <%= content_tag(:font,
-                                  "%.2f%" % @beam.displacement_error,
-                                  color: "red") %>
-                <% end %>
-              <% else %>
-                <%= "N/A" %>
-              <% end %>
-            </td>
+            <%= result_table(@beam, :displacement) %>
           </tr>
           <tr>
             <td>&sigma;<sub>33</sub></td>
-            <td>
-              <% if @beam.stress_results_ok? && !@beam.stress_fem.nil?%>
-                <%= number_with_units(@beam,
-                                      :stress_fem,
-                                      is_result: true) %>
-              <% else %>
-                <%= "N/A" %>
-              <% end %>
-            </td>
-            <td><%= number_with_units(@beam,
-                                      :stress,
-                                      is_result: true) %></td>
-            <td>
-              <% if @beam.stress_results_ok? && !@beam.stress_error.nil? %>
-                <% if @beam.stress_error.abs <= 5 %>
-                  <%= content_tag(:font,
-                                  "%.2f%" % @beam.stress_error,
-                                  color: "green") %>
-                <% elsif @beam.error[:s_error].abs <= 10 %>
-                  <%= content_tag(:font,
-                                  "%.2f%" % @beam.error[:s_error],
-                                  color: "orange") %>
-                <% else %>
-                  <%= content_tag(:font,
-                                  "%.2f%" % @beam.error[:s_error],
-                                  color: "red") %>
-                <% end %>
-              <% else %>
-                <%= "N/A" %>
-              <% end %>
-            </td>
+            <%= result_table(@beam, :stress) %>
           </tr>
         </tbody>
       </table>
