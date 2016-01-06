@@ -9,7 +9,8 @@ class Beam < ActiveRecord::Base
   validates :poisson,  presence: true,
                        numericality: { greater_than_or_equal_to: -1,
                                        less_than_or_equal_to: 0.5 }
-  validates :density,  presence: true, numericality: { greater_than: 0 }
+  validates :density,  presence: true,
+                       numericality: { greater_than_or_eqaul_to: 0 }
   validates :material, presence: true
   validates :load,     presence: true,
                        numericality: { greater_than_or_equal_to: 0 }
@@ -274,9 +275,13 @@ class Beam < ActiveRecord::Base
     convert(:width) * convert(:height)**3 / 12
   end
 
+  def area
+    convert(:width) * convert(:height)
+  end
+
   # Calculate the beam's mass.
   def mass
-    convert(:length) * convert(:width) * convert(:height) * convert(:density)
+    convert(:length) * area * convert(:density)
   end
 
   # Calculate the beam's weight.
@@ -301,15 +306,33 @@ class Beam < ActiveRecord::Base
 
   # Calculate the beam end angle due to load and gravity.
   def theta
-    theta_load = convert(:load) * convert(:length)**2 / (2 * stiffness) * 180 / Math::PI
-    theta_grav = weight * convert(:length)**2 / (6 * stiffness) * 180 / Math::PI
+    p = convert(:load)
+    l = convert(:length)
+    ei = stiffness
+    w = weight
+
+    theta_load = p * l**2 / (2 * ei) * 180 / Math::PI
+    theta_grav = w * l**2 / (6 * ei) * 180 / Math::PI
     theta_load + theta_grav
   end
 
-  # Calculate to total displacement due to load and gravity.
+  def shear_modulus
+    convert(:modulus) / (2 * (1 + poisson))
+  end
+
+  # Calculate to total displacement due to load and gravity using Timoshenko
+  # theory.
   def displacement
-    d_load = -convert(:load) * convert(:length)**3 / (3 * stiffness)
-    d_grav = -weight * convert(:length)**3 / (8 * stiffness)
+    p = convert(:load)
+    l = convert(:length)
+    ei = stiffness
+    a = area
+    w = weight
+    g = shear_modulus
+    k = 5.0 / 6.0
+
+    d_load = -p * l * (l**2 / (3 * ei) + 1 / (k * a * g))
+    d_grav = -w * l * (l**2 / (8 * ei) + 1 / (2 * k * a * g))
     d_load + d_grav
   end
 
