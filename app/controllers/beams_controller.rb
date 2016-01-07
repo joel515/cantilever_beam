@@ -5,7 +5,7 @@ class BeamsController < ApplicationController
 
   def index
     if Beam.count > 0
-      @beams = Beam.paginate(page: params[:page])
+      @beams = Beam.page params[:page]
     else
       redirect_to root_url
     end

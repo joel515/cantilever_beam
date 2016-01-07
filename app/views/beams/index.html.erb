@@ -1,7 +1,7 @@
 <% provide(:title, "Beams") %>
 <h1>Beam list</h1>
 
-<%= will_paginate %>
+<%= paginate @beams %>
 
 <table class="table">
   <thead>
@@ -48,5 +48,3 @@
     </tr>
   <% end %>
 </table>
-
-<%= will_paginate %>
