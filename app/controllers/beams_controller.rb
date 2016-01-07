@@ -5,7 +5,7 @@ class BeamsController < ApplicationController
 
   def index
     if Beam.count > 0
-      @beams = Beam.page params[:page]
+      @beams = Beam.order(:id).page params[:page]
     else
       redirect_to root_url
     end
@@ -41,7 +41,11 @@ class BeamsController < ApplicationController
     else
       flash[:danger] = "Submission for #{@beam.name} failed."
     end
-    redirect_to index_url
+    if request.referrer.include? index_path
+      redirect_to request.referrer
+    else
+      redirect_to duplicate_beam
+    end
   end
 
   def update
@@ -58,23 +62,31 @@ class BeamsController < ApplicationController
     @beam.clean
     @beam.destroy
     flash[:success] = "Beam deleted."
-    redirect_to index_url
+    if request.referrer.include? index_path
+      redirect_to request.referrer
+    else
+      redirect_to index_url
+    end
   end
 
   def clean
     @beam.clean
     flash[:success] = "Job directory successfully deleted."
-    redirect_to request.referrer || index_url
+    debugger
+    if request.referrer.include? results_beam_path
+      redirect_to @beam
+    else
+      redirect_to request.referrer || index_url
+    end
   end
 
   def copy
     duplicate_beam = @beam.dup
     duplicate_beam.name = "#{@beam.name}-Copy"
     duplicate_beam.ready
-    flash[:success] = "Successfully created #{duplicate_beam.name}."
-    # TODO: Fix redirection
-    if request.referrer == index_url
-      redirect_to index_url
+    if request.referrer.include? index_path
+      redirect_to index_path(page:   Beam.page.num_pages,
+                             anchor: duplicate_beam.prefix)
     else
       redirect_to duplicate_beam
     end
