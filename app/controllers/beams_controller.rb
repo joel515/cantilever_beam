@@ -46,6 +46,7 @@ class BeamsController < ApplicationController
 
   def update
     if @beam.update_attributes(beam_params)
+      @beam.clean
       flash[:success] = "Successully updated #{@beam.name}."
       redirect_to @beam
     else
@@ -62,17 +63,21 @@ class BeamsController < ApplicationController
 
   def clean
     @beam.clean
-    flash[:success] = "Job directory successfully deleted"
-    # TODO: get the previous url and redirect to that
-    redirect_to index_url
+    flash[:success] = "Job directory successfully deleted."
+    redirect_to request.referrer || index_url
   end
 
   def copy
     duplicate_beam = @beam.dup
     duplicate_beam.name = "#{@beam.name}-Copy"
     duplicate_beam.ready
-    # TODO: get the previous url and redirect to that
-    redirect_to duplicate_beam
+    flash[:success] = "Successfully created #{duplicate_beam.name}."
+    # TODO: Fix redirection
+    if request.referrer == index_url
+      redirect_to index_url
+    else
+      redirect_to duplicate_beam
+    end
   end
 
   def embed
