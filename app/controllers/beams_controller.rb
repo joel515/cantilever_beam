@@ -44,13 +44,13 @@ class BeamsController < ApplicationController
     if request.referrer.include? index_path
       redirect_to request.referrer
     else
-      redirect_to duplicate_beam
+      redirect_to @beam
     end
   end
 
   def update
     if @beam.update_attributes(beam_params)
-      @beam.clean
+      @beam.delete_staging_directories
       flash[:success] = "Successully updated #{@beam.name}."
       redirect_to @beam
     else
@@ -59,7 +59,7 @@ class BeamsController < ApplicationController
   end
 
   def destroy
-    @beam.clean
+    @beam.delete_staging_directories
     @beam.destroy
     flash[:success] = "Beam deleted."
     if request.referrer.include? index_path
@@ -70,9 +70,8 @@ class BeamsController < ApplicationController
   end
 
   def clean
-    @beam.clean
+    @beam.delete_staging_directories
     flash[:success] = "Job directory successfully deleted."
-    debugger
     if request.referrer.include? results_beam_path
       redirect_to @beam
     else
