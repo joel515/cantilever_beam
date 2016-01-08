@@ -92,7 +92,6 @@ class BeamsController < ApplicationController
   end
 
   def embed
-    @beam.generate_results if @beam.graphics_file(@result.to_sym).empty?
     render layout: false, file: @beam.graphics_file(@result.to_sym)
   end
 
