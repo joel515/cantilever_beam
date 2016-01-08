@@ -77,8 +77,8 @@
   </div>
 </div>
 <% if @beam.completed? %>
-  <div class="btn-group">
-    <%= button(@beam, :results, text: true, size: 'btn-md') %>
-  </div>
+  <%= button(@beam, :results, text: true, size: 'btn-md') %>
+<% elsif @beam.active? || @beam.running? %>
+  <%= button(@beam, :refresh, text: true, size: 'btn-md') %>
 <% end %>
 <%= button_group(@beam, text: true, size: 'btn-md') %>

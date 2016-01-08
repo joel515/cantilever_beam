@@ -77,7 +77,7 @@ module BeamsHelper
       link_to "<span class='glyphicon glyphicon-pencil'></span> "\
           "#{type.capitalize if opts[:text]}".html_safe,
         edit_beam_path(beam),
-        class: "btn btn-info #{opts[:size]} " \
+        class: "btn btn-fteblue #{opts[:size]} " \
           "#{'disabled' * opts[:disabled].to_i}".strip,
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'Edit beam'
@@ -86,7 +86,7 @@ module BeamsHelper
           "#{type.capitalize if opts[:text]}".html_safe,
         beam,
         method: :delete,
-        class: "btn btn-danger #{opts[:size]} " \
+        class: "btn btn-ftered #{opts[:size]} " \
           "#{'disabled' * opts[:disabled].to_i}".strip,
         data: { confirm: 'Are you sure?', toggle: 'tooltip',
           placement: 'top' },
@@ -96,7 +96,7 @@ module BeamsHelper
           "#{type.capitalize if opts[:text]}".html_safe,
         copy_beam_path(beam),
         method: :put,
-        class: "btn btn-default #{opts[:size]} " \
+        class: "btn btn-ftegray #{opts[:size]} " \
           "#{'disabled' * opts[:disabled].to_i}".strip,
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'Copy beam'
@@ -105,7 +105,7 @@ module BeamsHelper
           "#{type.capitalize if opts[:text]}".html_safe,
         clean_beam_path(beam),
         method: :put,
-        class: "btn btn-warning #{opts[:size]} " \
+        class: "btn btn-fteyellow #{opts[:size]} " \
           "#{'disabled' * opts[:disabled].to_i}".strip,
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'Clean job directory'
@@ -117,6 +117,14 @@ module BeamsHelper
           "#{'disabled' * opts[:disabled].to_i}".strip,
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'View results'
+    elsif type == :refresh
+      link_to "<span class='glyphicon glyphicon-refresh'></span> "\
+          "#{type.capitalize if opts[:text]}".html_safe,
+        request.original_url,
+        class: "btn btn-info #{opts[:size]} " \
+          "#{'disabled' * opts[:disabled].to_i}".strip,
+        data: { toggle: 'tooltip', placement: 'top' },
+        title: 'Refresh page'
     end
   end
 
