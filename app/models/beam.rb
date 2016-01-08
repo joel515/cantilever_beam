@@ -35,11 +35,11 @@ class Beam < ActiveRecord::Base
     USE_MUMPS = true
     WITH_PBS =  false
   when :login
-    GMSH_EXE =        "/gpfs/admin/setup/gmsh/gmsh-2.8.5-Linux/bin/gmsh"
-    ELMERGRID_EXE =   "/gpfs/admin/setup/elmer/old/install-old/bin/ElmerGrid"
-    ELMERSOLVER_EXE = "/gpfs/admin/setup/elmer/old/install-old/bin/ElmerSolver"
+    GMSH_EXE =        "/gpfs/apps/gmsh/gmsh-2.8.5-Linux/bin/gmsh"
+    ELMERGRID_EXE =   "/gpfs/apps/elmer/bin/ElmerGrid"
+    ELMERSOLVER_EXE = "/gpfs/apps/elmer/bin/ElmerSolver"
     PARAVIEW_EXE =    "/gpfs/home/jkopp/apps/paraview/4.4.0/bin/pvbatch"
-    USE_MUMPS = false
+    USE_MUMPS = true
     WITH_PBS =  true
   else
     GMSH_EXE =        "gmsh"
