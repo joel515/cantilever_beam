@@ -36,10 +36,10 @@ class Beam < ActiveRecord::Base
     WITH_PBS =  false
   when :login
     GMSH_EXE =        "/gpfs/apps/gmsh/gmsh-2.8.5-Linux/bin/gmsh"
-    ELMERGRID_EXE =   "/gpfs/admin/setup/elmer/install/bin/ElmerGrid"
-    ELMERSOLVER_EXE = "/gpfs/admin/setup/elmer/install/bin/ElmerSolver"
+    ELMERGRID_EXE =   "/gpfs/apps/elmer/bin/ElmerGrid"
+    ELMERSOLVER_EXE = "/gpfs/apps/elmer/bin/ElmerSolver"
     PARAVIEW_EXE =    "/gpfs/home/jkopp/apps/paraview/4.4.0/bin/pvbatch"
-    USE_MUMPS = true
+    USE_MUMPS = false
     WITH_PBS =  true
   else
     GMSH_EXE =        "gmsh"
@@ -639,7 +639,7 @@ class Beam < ActiveRecord::Base
         f.puts "  Nonlinear System Newton After Iterations = 3"
         f.puts "  Nonlinear System Newton After Tolerance = 1.0e-3"
         f.puts "  Nonlinear System Relaxation Factor = 1"
-        f.puts "  Linear System Solver = Direct"
+        f.puts "  Linear System Solver = Direct" if USE_MUMPS == true
         f.puts "  Linear System Direct Method = MUMPS" if USE_MUMPS == true
         f.puts "End"
         f.puts ""
