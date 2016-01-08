@@ -1,6 +1,8 @@
 <% provide(:title, "Beams") %>
-<h1>Beam list</h1>
-
+<h1>
+  Beam list
+  <%= button(nil, :refresh, size: 'btn-lg') %>
+</h1>
 <%= paginate @beams %>
 <p><%= page_entries_info @beams, entry_name: 'beam' %></p>
 
