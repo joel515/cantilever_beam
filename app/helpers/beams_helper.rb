@@ -1,3 +1,15 @@
+class FalseClass
+  def to_i
+    0
+  end
+end
+
+class TrueClass
+  def to_i
+    1
+  end
+end
+
 module BeamsHelper
   def pluralize_without_count(count, noun, text = nil)
     count == 1 ? "#{noun}#{text}" : "#{noun.pluralize}#{text}"
@@ -49,20 +61,24 @@ module BeamsHelper
     "#{value} #{unit}".html_safe
   end
 
-  def button(beam, type, opts = { text: true, size: 'btn-md' })
+  def button(beam, type, opts = { text: false, size: 'btn-xs',
+    disabled: false })
+
     if type == :submit
       link_to "<span class='glyphicon glyphicon-play'></span> "\
           "#{type.capitalize if opts[:text]}".html_safe,
         submit_beam_path(beam),
         method: :put,
-        class: "btn btn-success #{opts[:size]}",
+        class: "btn btn-success #{opts[:size]} " \
+          "#{'disabled' * opts[:disabled].to_i}".strip,
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'Submit job to cluster'
     elsif type == :edit
       link_to "<span class='glyphicon glyphicon-pencil'></span> "\
           "#{type.capitalize if opts[:text]}".html_safe,
         edit_beam_path(beam),
-        class: "btn btn-info #{opts[:size]}",
+        class: "btn btn-info #{opts[:size]} " \
+          "#{'disabled' * opts[:disabled].to_i}".strip,
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'Edit beam'
     elsif type == :delete
@@ -70,7 +86,8 @@ module BeamsHelper
           "#{type.capitalize if opts[:text]}".html_safe,
         beam,
         method: :delete,
-        class: "btn btn-danger #{opts[:size]}",
+        class: "btn btn-danger #{opts[:size]} " \
+          "#{'disabled' * opts[:disabled].to_i}".strip,
         data: { confirm: 'Are you sure?', toggle: 'tooltip',
           placement: 'top' },
         title: 'Delete beam'
@@ -79,7 +96,8 @@ module BeamsHelper
           "#{type.capitalize if opts[:text]}".html_safe,
         copy_beam_path(beam),
         method: :put,
-        class: "btn btn-default #{opts[:size]}",
+        class: "btn btn-default #{opts[:size]} " \
+          "#{'disabled' * opts[:disabled].to_i}".strip,
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'Copy beam'
     elsif type == :clean
@@ -87,17 +105,40 @@ module BeamsHelper
           "#{type.capitalize if opts[:text]}".html_safe,
         clean_beam_path(beam),
         method: :put,
-        class: "btn btn-warning #{opts[:size]}",
+        class: "btn btn-warning #{opts[:size]} " \
+          "#{'disabled' * opts[:disabled].to_i}".strip,
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'Clean job directory'
     elsif type == :results
       link_to "<span class='glyphicon glyphicon-eye-open'></span> "\
           "#{type.capitalize if opts[:text]}".html_safe,
         results_beam_path(beam),
-        class: "btn btn-primary #{opts[:size]}",
+        class: "btn btn-primary #{opts[:size]} " \
+          "#{'disabled' * opts[:disabled].to_i}".strip,
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'View results'
     end
+  end
+
+  def button_group(beam, opts = { text: false, size: 'btn-xs'} )
+    div = "<div class=\"btn-group\">"
+    if beam.ready?
+      div += button(beam, :submit, opts)
+    else
+      if beam.active? || beam.running?
+
+        opts[:disabled] = true
+        div += button(beam, :clean,  opts)
+      else
+        div += button(beam, :clean,  opts)
+      end
+    end
+
+    div += button(beam, :edit,   opts)
+    div += button(beam, :copy,   opts)
+    div += button(beam, :delete, opts)
+    div += "</div>"
+    div.html_safe
   end
 
   def result_table(beam, result)
