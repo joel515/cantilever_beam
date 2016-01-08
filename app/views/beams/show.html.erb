@@ -10,18 +10,15 @@
         <tbody>
           <tr>
             <td>Length</td>
-            <td><%= number_with_units(@beam,
-                                      :length) %></td>
+            <td><%= number_with_units(@beam, :length) %></td>
           </tr>
           <tr>
             <td>Width</td>
-            <td><%= number_with_units(@beam,
-                                      :width) %></td>
+            <td><%= number_with_units(@beam, :width) %></td>
           </tr>
           <tr>
             <td>Height</td>
-            <td><%= number_with_units(@beam,
-                                      :height) %></td>
+            <td><%= number_with_units(@beam, :height) %></td>
           </tr>
         </tbody>
       </table>
@@ -34,8 +31,7 @@
         <tbody>
           <tr>
             <td>Load</td>
-            <td><%= number_with_units(@beam,
-                                      :load) %></td>
+            <td><%= number_with_units(@beam, :load) %></td>
           </tr>
         </tbody>
       </table>
@@ -73,8 +69,7 @@
         <tbody>
           <tr>
             <td>Global Mesh Size</td>
-            <td><%= number_with_units(@beam,
-                                      :meshsize) %></td>
+            <td><%= number_with_units(@beam, :meshsize) %></td>
           </tr>
         </tbody>
       </table>
@@ -83,16 +78,7 @@
 </div>
 <% if @beam.completed? %>
   <div class="btn-group">
-    <%= button(@beam, :results) %>
+    <%= button(@beam, :results, text: true, size: 'btn-md') %>
   </div>
 <% end %>
-<div class="btn-group">
-  <% if @beam.ready? %>
-    <%= button(@beam, :submit) %>
-  <% else %>
-    <%= button(@beam,  :clean) %>
-  <% end %>
-  <%= button(@beam, :edit) %>
-  <%= button(@beam, :copy) %>
-  <%= button(@beam, :delete) %>
-</div>
+<%= button_group(@beam, text: true, size: 'btn-md') %>

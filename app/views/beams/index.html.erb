@@ -32,20 +32,7 @@
       <td><%= beam.material %></td>
       <td><%= number_with_units(beam, :load) %></td>
       <td><%= number_with_units(beam, :meshsize) %></td>
-      <td>
-        <div class="btn-group">
-          <% if beam.ready? %>
-            <%= button(beam, :submit, text: false, size: 'btn-xs') %>
-          <% elsif beam.active? || beam.running? %>
-            <%= button(beam, :clean,  text: false, size: 'btn-xs disabled') %>
-          <% else %>
-            <%= button(beam, :clean,  text: false, size: 'btn-xs') %>
-          <% end %>
-          <%= button(beam, :edit,   text: false, size: 'btn-xs') %>
-          <%= button(beam, :copy,   text: false, size: 'btn-xs') %>
-          <%= button(beam, :delete, text: false, size: 'btn-xs') %>
-        </div>
-      </td>
+      <td><%= button_group(beam) %></td>
     </tr>
   <% end %>
 </table>
