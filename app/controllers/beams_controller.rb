@@ -1,6 +1,6 @@
 class BeamsController < ApplicationController
   before_action :set_beam, only: [:show, :submit, :results, :edit, :update,
-    :destroy, :clean, :copy, :embed]
+    :destroy, :clean, :copy, :embed, :kill]
   before_action :get_displayed_result, only: [:results, :embed]
 
   def index
@@ -94,6 +94,16 @@ class BeamsController < ApplicationController
   def embed
     @beam.generate_results if @beam.graphics_file(@result.to_sym).empty?
     render layout: false, file: @beam.graphics_file(@result.to_sym)
+  end
+
+  def kill
+    # TODO: Implement kill sequence.
+    if request.referrer.include? index_path
+      redirect_to index_path(page:   Beam.page.current_page,
+                             anchor: @beam.prefix)
+    else
+      redirect_to @beam
+    end
   end
 
   private
