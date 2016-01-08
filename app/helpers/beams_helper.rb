@@ -65,7 +65,7 @@ module BeamsHelper
     disabled: false })
 
     if type == :submit
-      link_to "<span class='glyphicon glyphicon-play'></span> "\
+      link_to "<span class='glyphicon glyphicon-flash'></span> "\
           "#{type.capitalize if opts[:text]}".html_safe,
         submit_beam_path(beam),
         method: :put,
@@ -92,7 +92,7 @@ module BeamsHelper
           placement: 'top' },
         title: 'Delete beam'
     elsif type == :copy
-      link_to "<span class='glyphicon glyphicon-copy'></span> "\
+      link_to "<span class='glyphicon glyphicon-duplicate'></span> "\
           "#{type.capitalize if opts[:text]}".html_safe,
         copy_beam_path(beam),
         method: :put,
@@ -101,7 +101,7 @@ module BeamsHelper
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'Copy beam'
     elsif type == :clean
-      link_to "<span class='glyphicon glyphicon-remove'></span> "\
+      link_to "<span class='glyphicon glyphicon-erase'></span> "\
           "#{type.capitalize if opts[:text]}".html_safe,
         clean_beam_path(beam),
         method: :put,
@@ -110,7 +110,7 @@ module BeamsHelper
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'Clean job directory'
     elsif type == :results
-      link_to "<span class='glyphicon glyphicon-eye-open'></span> "\
+      link_to "<span class='glyphicon glyphicon-stats'></span> "\
           "#{type.capitalize if opts[:text]}".html_safe,
         results_beam_path(beam),
         class: "btn btn-primary #{opts[:size]} " \
@@ -125,6 +125,15 @@ module BeamsHelper
           "#{'disabled' * opts[:disabled].to_i}".strip,
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'Refresh page'
+    elsif type == :kill
+      link_to "<span class='glyphicon glyphicon-remove'></span> "\
+          "#{type.capitalize if opts[:text]}".html_safe,
+        kill_beam_path(beam),
+        method: :put,
+        class: "btn btn-danger #{opts[:size]} " \
+          "#{'disabled' * opts[:disabled].to_i}".strip,
+        data: { toggle: 'tooltip', placement: 'top' },
+        title: 'Kill job'
     end
   end
 
@@ -134,9 +143,8 @@ module BeamsHelper
       div += button(beam, :submit, opts)
     else
       if beam.active? || beam.running?
-
+        div += button(beam, :kill,  opts)
         opts[:disabled] = true
-        div += button(beam, :clean,  opts)
       else
         div += button(beam, :clean,  opts)
       end

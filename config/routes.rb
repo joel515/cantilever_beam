@@ -13,6 +13,7 @@ Rails.application.routes.draw do
       put 'clean'
       get 'results'
       get 'embed'
+      put 'kill'
     end
   end
 
