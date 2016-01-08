@@ -1,6 +1,5 @@
 class Beam < ActiveRecord::Base
   before_destroy :delete_staging_directories
-  # before_create :create_staging_directories
   validates :name,     presence: true, uniqueness: { case_sensitive: false }
   # TODO: Check name with a regex for parentheses.
   validates :length,   presence: true, numericality: { greater_than: 0 }
@@ -25,12 +24,31 @@ class Beam < ActiveRecord::Base
   validates :load_unit,     presence: true
   validates :status,        presence: true
 
-  GMSH_EXE =        "/gpfs/admin/setup/gmsh/gmsh-2.8.5-Linux/bin/gmsh"
-  ELMERGRID_EXE =   "/gpfs/admin/setup/elmer/old/install-old/bin/ElmerGrid"
-  ELMERSOLVER_EXE = "/gpfs/admin/setup/elmer/old/install-old/bin/ElmerSolver"
-  PARAVIEW_EXE =    "/gpfs/home/jkopp/apps/paraview/4.4.0/bin/pvbatch"
+  SERVER = :khaleesi
 
-  USE_MUMPS = false
+  case SERVER
+  when :khaleesi
+    GMSH_EXE =        "/apps/gmsh/gmsh-2.11.0-Linux/bin/gmsh"
+    ELMERGRID_EXE =   "/apps/elmer/bin/ElmerGrid"
+    ELMERSOLVER_EXE = "/apps/elmer/bin/ElmerSolver"
+    PARAVIEW_EXE =    "/apps/paraview/bin/pvbatch"
+    USE_MUMPS = true
+    WITH_PBS =  false
+  when :raptor
+    GMSH_EXE =        "/gpfs/admin/setup/gmsh/gmsh-2.8.5-Linux/bin/gmsh"
+    ELMERGRID_EXE =   "/gpfs/admin/setup/elmer/old/install-old/bin/ElmerGrid"
+    ELMERSOLVER_EXE = "/gpfs/admin/setup/elmer/old/install-old/bin/ElmerSolver"
+    PARAVIEW_EXE =    "/gpfs/home/jkopp/apps/paraview/4.4.0/bin/pvbatch"
+    USE_MUMPS = false
+    WITH_PBS =  true
+  else
+    GMSH_EXE =        "gmsh"
+    ELMERGRID_EXE =   "ElmerGrid"
+    ELMERSOLVER_EXE = "ElmerSolver"
+    PARAVIEW_EXE =    "pvbatch"
+    USE_MUMPS = false
+    WITH_PBS =  false
+  end
 
   JOB_STATUS = {
     u: "Unsubmitted",
@@ -237,7 +255,8 @@ class Beam < ActiveRecord::Base
 
     # Submit to cluster via PBS.
     Dir.chdir(jobdir) {
-      cmd = "qsub #{prefix}.sh"
+      cmd = "#{WITH_PBS ? 'qsub' : 'bash'} #{prefix}.sh"
+      cmd += " > #{prefix}.out 2>&1 &" if !WITH_PBS
       self.jobid = `#{cmd}`
     }
 
@@ -252,58 +271,60 @@ class Beam < ActiveRecord::Base
   end
 
   def check_status
-    return JOB_STATUS[:u] if jobid.nil?
-    return status if completed?
+    if WITH_PBS
+      return JOB_STATUS[:u] if jobid.nil?
+      return status if completed?
 
-    xml_status = `qstat #{jobid} -x`
-    unless xml_status.nil? || xml_status.empty?
-      self.status = JOB_STATUS[Nokogiri::XML(xml_status).xpath( \
-        '//Data/Job/job_state').children.first.content.downcase.to_sym] \
-        || JOB_STATUS[:k]
+      xml_status = `qstat #{jobid} -x`
+      unless xml_status.nil? || xml_status.empty?
+        self.status = JOB_STATUS[Nokogiri::XML(xml_status).xpath( \
+          '//Data/Job/job_state').children.first.content.downcase.to_sym] \
+          || JOB_STATUS[:k]
+      else
+        self.status = JOB_STATUS[:k]
+      end
+      self.save
+      status
     else
-      self.status = JOB_STATUS[:k]
-    end
-    self.save
-    status
-    # # Temporary implementation hack until PBS/Torque is implemented.
-    # if jobdir.nil? || jobdir.empty?
-    #   if submitted? || active? || running?
-    #       self.status = JOB_STATUS[:f]
-    #   else
-    #     status
-    #   end
-    # else
-    #   file_prefix = prefix
-    #   jobpath = Pathname.new(jobdir)
-    #   result_file = jobpath + jobpath.basename + "#{file_prefix}0001.vtu"
-    #   fem_out = jobpath + "debug/#{file_prefix}.sif.o"
+      if jobdir.nil? || jobdir.empty?
+        if submitted? || active? || running?
+            self.status = JOB_STATUS[:f]
+        else
+          status
+        end
+      else
+        file_prefix = prefix
+        jobpath = Pathname.new(jobdir)
+        result_file = jobpath + jobpath.basename + "#{file_prefix}0001.vtu"
+        fem_out = jobpath + "debug/#{file_prefix}.sif.o"
 
-    #   if !jobpath.directory?
-    #     if submitted? || active? || running?
-    #       self.status = JOB_STATUS[:f]
-    #     else
-    #       self.status = JOB_STATUS[:u]
-    #     end
-    #     self.save
-    #     status
-    #   elsif submitted? || running?
-    #     if result_file.exist?
-    #       self.status = JOB_STATUS[:c]
-    #     elsif fem_out.exist?
-    #       if !File.foreach(fem_out).enum_for(:grep, /error/i).first.nil?
-    #         self.status = JOB_STATUS[:f]
-    #       else
-    #         self.status = JOB_STATUS[:r]
-    #       end
-    #     else
-    #       self.status = JOB_STATUS[:r]
-    #     end
-    #     self.save
-    #     status
-    #   else
-    #     status
-    #   end
-    # end
+        if !jobpath.directory?
+          if submitted? || active? || running?
+            self.status = JOB_STATUS[:f]
+          else
+            self.status = JOB_STATUS[:u]
+          end
+          self.save
+          status
+        elsif submitted? || running?
+          if result_file.exist?
+            self.status = JOB_STATUS[:c]
+          elsif fem_out.exist?
+            if !File.foreach(fem_out).enum_for(:grep, /error/i).first.nil?
+              self.status = JOB_STATUS[:f]
+            else
+              self.status = JOB_STATUS[:r]
+            end
+          else
+            self.status = JOB_STATUS[:r]
+          end
+          self.save
+          status
+        else
+          status
+        end
+      end
+    end
   end
 
   # Calculate the beam's bending moment of inertia.
@@ -893,20 +914,30 @@ class Beam < ActiveRecord::Base
     # Elmer format using ElmerGrid, solves using ElmerSolver, then creates
     # 3D visualization plots of the results using Paraview (batch).
     def generate_submit_script
-      pbs_file = Pathname.new(jobdir) + "#{prefix}.sh"
-      File.open(pbs_file, 'w') do |f|
+      jobpath = Pathname.new(jobdir)
+      submit_script = jobpath + "#{prefix}.sh"
+      File.open(submit_script, 'w') do |f|
         f.puts "#!/bin/bash"
 
-        f.puts "#PBS -N #{prefix}"
-        f.puts "#PBS -l nodes=1:ppn=1"
-        f.puts "#PBS -j oe"
+        if WITH_PBS
+          f.puts "#PBS -N #{prefix}"
+          f.puts "#PBS -l nodes=1:ppn=1"
+          f.puts "#PBS -j oe"
+          f.puts "cd $PBS_O_WORKDIR"
+        else
+          f.puts "cd #{jobpath}"
+        end
 
-        f.puts "cd $PBS_O_WORKDIR"
         f.puts "#{GMSH_EXE} #{prefix}.geo -3"
         f.puts "#{ELMERGRID_EXE} 14 2 #{prefix}.msh -autoclean"
         f.puts "#{ELMERSOLVER_EXE} #{prefix}.sif"
 
-        f.puts "cd $PBS_O_WORKDIR/#{prefix}"
+        if WITH_PBS
+          f.puts "cd $PBS_O_WORKDIR/#{prefix}"
+        else
+          f.puts "cd #{jobpath + prefix}"
+        end
+
         f.puts "#{PARAVIEW_EXE} #{prefix}.py"
       end
     end
