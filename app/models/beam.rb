@@ -24,7 +24,7 @@ class Beam < ActiveRecord::Base
   validates :load_unit,     presence: true
   validates :status,        presence: true
 
-  SERVER = :khaleesi
+  SERVER = `hostname`.strip.to_sym
 
   case SERVER
   when :khaleesi
@@ -34,7 +34,7 @@ class Beam < ActiveRecord::Base
     PARAVIEW_EXE =    "/apps/paraview/bin/pvbatch"
     USE_MUMPS = true
     WITH_PBS =  false
-  when :raptor
+  when :login
     GMSH_EXE =        "/gpfs/admin/setup/gmsh/gmsh-2.8.5-Linux/bin/gmsh"
     ELMERGRID_EXE =   "/gpfs/admin/setup/elmer/old/install-old/bin/ElmerGrid"
     ELMERSOLVER_EXE = "/gpfs/admin/setup/elmer/old/install-old/bin/ElmerSolver"
