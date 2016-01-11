@@ -62,6 +62,7 @@ class Beam < ActiveRecord::Base
     c: "Completed",
     f: "Failed",
     b: "Submitted",
+    m: "Terminated",
     k: "Unknown"
   }
 
@@ -237,6 +238,10 @@ class Beam < ActiveRecord::Base
     [JOB_STATUS[:b]].include? status
   end
 
+  def terminated?
+    [JOB_STATUS[:m], JOB_STATUS[:e]].include? status
+  end
+
   # Formulate a file/directory prefix using the beam's name by removing all
   # spaces and converting to lower case.
   # TODO: Maybe add ID to prefix?  Can then strip name of characters that aren't
@@ -246,6 +251,8 @@ class Beam < ActiveRecord::Base
     # name.gsub(/\W/, "").downcase
   end
 
+  # Submit the job.  Use qsub if using PBS scheduler.  Otherwise run the bash
+  # script.  If the latter, capture the group id from the process spawned.
   def submit
     create_staging_directories
     generate_geometry_file
@@ -255,9 +262,9 @@ class Beam < ActiveRecord::Base
 
     # Submit to cluster via PBS.
     Dir.chdir(jobdir) {
-      cmd = "#{WITH_PBS ? 'qsub' : 'bash'} #{prefix}.sh"
-      cmd += " > #{prefix}.out 2>&1 &" if !WITH_PBS
-      self.jobid = `#{cmd}`
+      cmd =  "#{WITH_PBS ? 'qsub' : 'bash'} #{prefix}.sh"
+      cmd += " > #{prefix}.out 2>&1 &" unless WITH_PBS
+      self.jobid = WITH_PBS ? `#{cmd}` : Process.spawn(cmd, pgroup: true)
     }
 
     # If successful, set the status to "Submitted" and save to database.
@@ -270,6 +277,7 @@ class Beam < ActiveRecord::Base
     self.save
   end
 
+  # Check the job's status.  Use qstat if submitted via PBS.
   def check_status
     if WITH_PBS
       return JOB_STATUS[:u] if jobid.nil?
@@ -315,6 +323,8 @@ class Beam < ActiveRecord::Base
             else
               self.status = JOB_STATUS[:r]
             end
+          elsif terminated?
+            self.status = JOB_STATUS[:m]
           else
             self.status = JOB_STATUS[:r]
           end
@@ -327,11 +337,11 @@ class Beam < ActiveRecord::Base
     end
   end
 
-  # Kill the job.  If running with scheduler, submit qdel command.
+  # Kill the job.  If running with scheduler, submit qdel command.  Otherwise,
+  # submit a SIGTERM to the process group.
   def kill
     unless jobid.nil?
-      cmd = "#{WITH_PBS ? 'qdel' : 'kill'} #{jobid}"
-      `#{cmd}`
+      WITH_PBS ? `qdel #{jobid}` : Process.kill("TERM", -jobid.to_i)
       self.status = JOB_STATUS[:e]
       self.save
     end
@@ -342,6 +352,7 @@ class Beam < ActiveRecord::Base
     convert(:width) * convert(:height)**3 / 12
   end
 
+  # Calculate the beam's cross-sectional area.
   def area
     convert(:width) * convert(:height)
   end
@@ -383,6 +394,8 @@ class Beam < ActiveRecord::Base
     theta_load + theta_grav
   end
 
+  # Calculate the shear modulus of the material based on the elastic modulus
+  # and Poisson's ratio.
   def shear_modulus
     convert(:modulus) / (2 * (1 + poisson))
   end
