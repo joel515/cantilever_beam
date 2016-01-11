@@ -96,10 +96,10 @@ class BeamsController < ApplicationController
   end
 
   def kill
-    # TODO: Implement kill sequence.
+    @beam.kill
+    flash[:success] = "Terminating job for #{@beam.name}."
     if request.referrer.include? index_path
-      redirect_to index_path(page:   Beam.page.current_page,
-                             anchor: @beam.prefix)
+      redirect_to request.referrer
     else
       redirect_to @beam
     end

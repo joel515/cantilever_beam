@@ -327,6 +327,16 @@ class Beam < ActiveRecord::Base
     end
   end
 
+  # Kill the job.  If running with scheduler, submit qdel command.
+  def kill
+    unless jobid.nil?
+      cmd = "#{WITH_PBS ? 'qdel' : 'kill'} #{jobid}"
+      `#{cmd}`
+      self.status = JOB_STATUS[:e]
+      self.save
+    end
+  end
+
   # Calculate the beam's bending moment of inertia.
   def inertia
     convert(:width) * convert(:height)**3 / 12
