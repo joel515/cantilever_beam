@@ -71,6 +71,7 @@ class BeamsController < ApplicationController
 
   def clean
     @beam.delete_staging_directories
+    @beam.ready
     flash[:success] = "Job directory successfully deleted."
     if request.referrer.include? results_beam_path
       redirect_to @beam

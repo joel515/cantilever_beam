@@ -176,53 +176,25 @@ class Beam < ActiveRecord::Base
   validates_inclusion_of :load_unit,     in: FORCE_UNITS.keys.map(&:to_s)
   validates_inclusion_of :status,        in: JOB_STATUS.values
 
-  require 'open3'
   require 'pathname'
   require 'nokogiri'
 
-  def unit_text(param, result_units = false)
-    if result_units == false
-      UNIT_DESIGNATION[param][self.send(param.to_s<<"_unit").to_sym][:text] unless
-        UNIT_DESIGNATION[param].nil?
-    else
-      RESULT_UNITS[result_unit_system.to_sym][param][:text]
-    end
-  end
-
-  def stress_units
-    RESULT_UNITS[result_unit_system.to_sym][:stress]
-  end
-
-  def displ_units
-    RESULT_UNITS[result_unit_system.to_sym][:displacement]
-  end
-
-  def convert(param)
-    self.send(param.to_s) * \
-      UNIT_DESIGNATION[param][self.send(param.to_s<<"_unit").to_sym][:convert] \
-      unless UNIT_DESIGNATION[param].nil?
-  end
-
-  def unconvert(param)
-    self.send(param.to_s) / \
-      RESULT_UNITS[result_unit_system.to_sym][param][:convert]
-  end
-
+  # Job status queries.
   def running?
-    [JOB_STATUS[:e], JOB_STATUS[:r]].include? status
+    [JOB_STATUS[:r]].include? status
   end
 
-  def completed?
-    [JOB_STATUS[:c]].include? status
+  def completed?(state = status)
+    [JOB_STATUS[:c]].include? state
   end
 
   def active?
-    [JOB_STATUS[:h], JOB_STATUS[:q],
+    [JOB_STATUS[:h], JOB_STATUS[:q], JOB_STATUS[:s], JOB_STATUS[:e],
      JOB_STATUS[:t], JOB_STATUS[:w], JOB_STATUS[:b]].include? status
   end
 
   def failed?
-    [JOB_STATUS[:s], JOB_STATUS[:f]].include? status
+    [JOB_STATUS[:f], JOB_STATUS[:k], JOB_STATUS[:m]].include? status
   end
 
   def ready?
@@ -230,8 +202,9 @@ class Beam < ActiveRecord::Base
   end
 
   def ready
-    self.status = JOB_STATUS[:u]
-    self.save
+    self.jobid = nil
+    self.jobdir = nil
+    set_status :u
   end
 
   def submitted?
@@ -254,45 +227,46 @@ class Beam < ActiveRecord::Base
   # Submit the job.  Use qsub if using PBS scheduler.  Otherwise run the bash
   # script.  If the latter, capture the group id from the process spawned.
   def submit
-    create_staging_directories
-    generate_geometry_file
-    generate_input_deck
-    generate_results_script
-    generate_submit_script
+    self.jobdir = create_staging_directories
+    geom_file = generate_geometry_file
+    input_deck = generate_input_deck
+    results_script = generate_results_script
 
-    # Submit to cluster via PBS.
-    Dir.chdir(jobdir) {
-      cmd =  "#{WITH_PBS ? 'qsub' : 'bash'} #{prefix}.sh"
-      cmd += " > #{prefix}.out 2>&1 &" unless WITH_PBS
-      self.jobid = WITH_PBS ? `#{cmd}` : Process.spawn(cmd, pgroup: true)
-    }
+    if !geom_file.nil? && !input_deck.nil? && !results_script.nil?
+      submit_script = generate_submit_script(geom_file:      geom_file,
+                                             input_deck:     input_deck,
+                                             results_script: results_script)
+
+      if !submit_script.nil?
+        Dir.chdir(jobdir) {
+          cmd =  "#{WITH_PBS ? 'qsub' : 'bash'} #{prefix}.sh"
+          cmd += " > #{prefix}.out 2>&1 &" unless WITH_PBS
+          self.jobid = WITH_PBS ? `#{cmd}` : Process.spawn(cmd, pgroup: true)
+        }
+      end
+    end
 
     # If successful, set the status to "Submitted" and save to database.
     unless jobid.nil?
       self.jobid = jobid.strip
-      self.status = JOB_STATUS[:b]
+      set_status :b
     else
-      self.status = JOB_STATUS[:f]
+      set_status :f
     end
-    self.save
   end
 
   # Check the job's status.  Use qstat if submitted via PBS.
   def check_status
     if WITH_PBS
-      return JOB_STATUS[:u] if jobid.nil?
-      return status if completed?
+      return status if jobid.nil?
 
       xml_status = `qstat #{jobid} -x`
       unless xml_status.nil? || xml_status.empty?
-        self.status = JOB_STATUS[Nokogiri::XML(xml_status).xpath( \
-          '//Data/Job/job_state').children.first.content.downcase.to_sym] \
-          || JOB_STATUS[:k]
+        state = check_xml_status(xml_status)
+        completed?(state) ? check_completed_status : state
       else
-        self.status = JOB_STATUS[:k]
+        failed? ? status : check_completed_status
       end
-      self.save
-      status
     else
       if jobdir.nil? || jobdir.empty?
         if submitted? || active? || running?
@@ -337,14 +311,52 @@ class Beam < ActiveRecord::Base
     end
   end
 
+  def set_status(arg)
+    if arg.is_a? String
+      self.status = JOB_STATUS.has_value?(arg) ? arg : JOB_STATUS[:k]
+    elsif arg.is_a? Symbol
+      self.status = JOB_STATUS.has_key?(arg) ? JOB_STATUS[arg] : JOB_STATUS[:k]
+    else
+      self.status = JOB_STATUS[:k]
+    end
+    self.save
+  end
+
   # Kill the job.  If running with scheduler, submit qdel command.  Otherwise,
   # submit a SIGTERM to the process group.
   def kill
     unless jobid.nil?
       WITH_PBS ? `qdel #{jobid}` : Process.kill("TERM", -jobid.to_i)
-      self.status = JOB_STATUS[:e]
-      self.save
+      set_status :m
     end
+  end
+
+  def unit_text(param, result_units = false)
+    if result_units == false
+      UNIT_DESIGNATION[param][self.send(param.to_s<<"_unit").to_sym][:text] unless
+        UNIT_DESIGNATION[param].nil?
+    else
+      RESULT_UNITS[result_unit_system.to_sym][param][:text]
+    end
+  end
+
+  def stress_units
+    RESULT_UNITS[result_unit_system.to_sym][:stress]
+  end
+
+  def displ_units
+    RESULT_UNITS[result_unit_system.to_sym][:displacement]
+  end
+
+  def convert(param)
+    self.send(param.to_s) * \
+      UNIT_DESIGNATION[param][self.send(param.to_s<<"_unit").to_sym][:convert] \
+      unless UNIT_DESIGNATION[param].nil?
+  end
+
+  def unconvert(param)
+    self.send(param.to_s) / \
+      RESULT_UNITS[result_unit_system.to_sym][param][:convert]
   end
 
   # Calculate the beam's bending moment of inertia.
@@ -521,10 +533,6 @@ class Beam < ActiveRecord::Base
       jobpath = Pathname.new(jobdir)
       if jobpath.directory?
         jobpath.rmtree
-        self.jobdir = nil
-        self.jobid = nil
-        self.status = JOB_STATUS[:u]
-        self.save
       end
     end
   end
@@ -536,15 +544,15 @@ class Beam < ActiveRecord::Base
     # TODO: Add error checking if directories cannot be created.
     def create_staging_directories
       homedir = Pathname.new(Dir.home())
-      if homedir.directory?
-        scratchdir = homedir + "Scratch"
-        Dir.mkdir(scratchdir) unless scratchdir.directory?
-        stagedir = scratchdir + prefix
-        Dir.mkdir(stagedir) unless stagedir.directory?
-        resultdir = stagedir + prefix
-        Dir.mkdir(resultdir) unless resultdir.directory?
-        self.jobdir = stagedir.to_s
-      end
+      return nil unless homedir.directory?
+
+      scratchdir = homedir + "Scratch"
+      Dir.mkdir(scratchdir) unless scratchdir.directory?
+      stagedir = scratchdir + prefix
+      Dir.mkdir(stagedir) unless stagedir.directory?
+      resultdir = stagedir + prefix
+      Dir.mkdir(resultdir) unless resultdir.directory?
+      stagedir.to_s
     end
 
     # Write the file used to generate and mesh geometry.  This particular app
@@ -590,6 +598,8 @@ class Beam < ActiveRecord::Base
         f.puts "Recombine Surface \"*\";"
         f.puts "Transfinite Volume \"*\";"
       end
+
+      geom_file.exist? ? geom_file : nil
     end
 
     # Write the input deck utilizing the previously generated mesh.  The input
@@ -597,7 +607,7 @@ class Beam < ActiveRecord::Base
     # package.  (Note: Elmer was build using MUMPS for direct solving.  If not
     # using MUMPS, comment out the appropriate line below.)
     def generate_input_deck
-      fem_file = Pathname.new(jobdir) + "#{prefix}.sif"
+      input_deck = Pathname.new(jobdir) + "#{prefix}.sif"
       result_file = "#{prefix}.vtu"
       output_file = "#{prefix}.result"
 
@@ -609,7 +619,7 @@ class Beam < ActiveRecord::Base
       p = convert(:load)
 
       # Generate the Elmer input deck.
-      File.open(fem_file, 'w') do |f|
+      File.open(input_deck, 'w') do |f|
         f.puts "Header"
         f.puts "  CHECK KEYWORDS Warn"
         f.puts "  Mesh DB \"#{jobdir}\" \"#{prefix}\""
@@ -626,7 +636,7 @@ class Beam < ActiveRecord::Base
         f.puts "  Output Intervals = 1"
         f.puts "  Timestepping Method = BDF"
         f.puts "  BDF Order = 1"
-        f.puts "  Solver Input File = #{fem_file}"
+        f.puts "  Solver Input File = #{input_deck}"
         f.puts "  Output File = #{output_file}"
         f.puts "  Post File = #{result_file}"
         f.puts "End"
@@ -710,6 +720,8 @@ class Beam < ActiveRecord::Base
         f.puts "  Force 2 = $ -#{p} / #{w} / #{h}"
         f.puts "End"
       end
+
+      input_deck.exist? ? input_deck : nil
     end
 
     # Write the Python script used to generate visual contoured plots for
@@ -719,7 +731,6 @@ class Beam < ActiveRecord::Base
     # cluster off screen.)
     def generate_results_script
       # TODO: Give a warning when beam reaches nonlinear territory.
-      # TODO: Create a separate PBS job for this.
       # TODO: At some point create a second job to generate results.  Then FEA
       #       results can be used for scaling.
       jobpath = Pathname.new(jobdir)
@@ -749,7 +760,15 @@ class Beam < ActiveRecord::Base
       w = convert(:width)
       h = convert(:height)
 
+      # This is a hack.  Need to scale everything for very small dimensions.
+      # When exporting a WebGL file in Paraview the z buffer becomes small when
+      # fully zoomed (this should be a bug).  Geometry is bisected or not
+      # visible at all. Increasing the scale increases the z buffer.  Other
+      # option is to zoom out, but geometry will then be small.
+      view_scale = 1 / [l, w, h].max
+
       # TODO: Use FEA displacement results for scale.
+
       displ_scale = (0.2 * [l, w, h].max / displ_max_abs).abs
       plane_scale = 3.0
       arrow_scale = 0.2 * [l, w, h].max
@@ -783,6 +802,8 @@ class Beam < ActiveRecord::Base
         f.puts "warpByVector1Display.ScalarOpacityUnitDistance = " \
           "0.04268484912825877"
         f.puts "warpByVector1Display.SetRepresentationType('Wireframe')"
+        f.puts "warpByVector1Display.Scale = [#{view_scale}, #{view_scale}, "\
+          "#{view_scale}]"
 
         # Create a new 'Warp By Vector' to display deformed geometry.  Geometry
         # comes into into Paraview already displaced.  Subtract 1 from scale to
@@ -820,6 +841,8 @@ class Beam < ActiveRecord::Base
         f.puts "calculator1Display.LookupTable = stresszz#{stress_units}LUT"
         f.puts "calculator1Display.ScalarOpacityUnitDistance = " \
           "0.044238274071335064"
+        f.puts "calculator1Display.Scale = [#{view_scale}, #{view_scale}, "\
+          "#{view_scale}]"
         f.puts "Hide(warpByVector2, renderView1)"
 
         # Set up and show the legend.
@@ -846,9 +869,11 @@ class Beam < ActiveRecord::Base
 
         # Show the plane and modify its properties.
         f.puts "plane1Display = Show(plane1, renderView1)"
-        f.puts "plane1Display.Scale = [#{plane_scale}, #{plane_scale}, 1.0]"
-        f.puts "plane1Display.Position = [#{(1 - plane_scale) * w / 2}, " \
-          "#{(1 - plane_scale) * h / 2}, 0.0]"
+        f.puts "plane1Display.Scale = [#{plane_scale * view_scale}, " \
+          "#{plane_scale * view_scale}, 1.0]"
+        f.puts "plane1Display.Position = " \
+          "[#{(1 - plane_scale) * w * view_scale / 2}, " \
+          "#{(1 - plane_scale) * h * view_scale / 2}, 0.0]"
         f.puts "plane1Display.DiffuseColor = [0.0, 0.0, 0.682]"
 
         # Create an arrow to represent the load visually.
@@ -865,10 +890,11 @@ class Beam < ActiveRecord::Base
         f.puts "arrow1Display.DiffuseColor = [1.0, 0.0, 0.0]"
         f.puts "arrow1Display.Orientation = [0.0, 0.0, 90.0]"
         # TODO: Use FEA displacement results for scale.
-        f.puts "arrow1Display.Position = [#{w / 2}, " \
-          "#{h - displ_scale * displ_max_abs}, #{l}]"
-        f.puts "arrow1Display.Scale = [#{arrow_scale}, #{arrow_scale}, " \
-          "#{arrow_scale}]"
+        f.puts "arrow1Display.Position = [#{w * view_scale / 2}, " \
+          "#{(h - displ_scale * displ_max_abs) * view_scale}, " \
+          "#{l * view_scale}]"
+        f.puts "arrow1Display.Scale = [#{arrow_scale * view_scale}, " \
+          "#{arrow_scale * view_scale}, #{arrow_scale * view_scale}]"
 
         # Position the legend on the bottom of the window.
         f.puts "sb = GetScalarBar(stresszz#{stress_units}LUT, GetActiveView())"
@@ -930,14 +956,20 @@ class Beam < ActiveRecord::Base
         # Save the WebGL file.
         f.puts "ExportView(\"#{webgl_displ_file}\", view=renderView1)"
       end
+
+      paraview_script.exist? ? paraview_script : nil
     end
 
     # Write the Bash script used to submit the job to the cluster.  The job
     # first generates the geometry and mesh using GMSH, converts the mesh to
     # Elmer format using ElmerGrid, solves using ElmerSolver, then creates
     # 3D visualization plots of the results using Paraview (batch).
-    def generate_submit_script
+    def generate_submit_script(args)
       jobpath = Pathname.new(jobdir)
+      geom_file = Pathname.new(args[:geom_file]).basename
+      mesh_file = "#{geom_file.basename(geom_file.extname)}.msh"
+      input_deck = Pathname.new(args[:input_deck]).basename
+      results_script = Pathname.new(args[:results_script]).basename
       submit_script = jobpath + "#{prefix}.sh"
       File.open(submit_script, 'w') do |f|
         f.puts "#!/bin/bash"
@@ -951,9 +983,9 @@ class Beam < ActiveRecord::Base
           f.puts "cd #{jobpath}"
         end
 
-        f.puts "#{GMSH_EXE} #{prefix}.geo -3"
-        f.puts "#{ELMERGRID_EXE} 14 2 #{prefix}.msh -autoclean"
-        f.puts "#{ELMERSOLVER_EXE} #{prefix}.sif"
+        f.puts "#{GMSH_EXE} #{geom_file} -3"
+        f.puts "#{ELMERGRID_EXE} 14 2 #{mesh_file} -autoclean"
+        f.puts "#{ELMERSOLVER_EXE} #{input_deck}"
 
         if WITH_PBS
           f.puts "cd $PBS_O_WORKDIR/#{prefix}"
@@ -961,7 +993,32 @@ class Beam < ActiveRecord::Base
           f.puts "cd #{jobpath + prefix}"
         end
 
-        f.puts "#{PARAVIEW_EXE} #{prefix}.py"
+        f.puts "#{PARAVIEW_EXE} #{results_script}"
+      end
+
+      submit_script.exist? ? submit_script : nil
+    end
+
+    def check_xml_status(xml_status)
+      JOB_STATUS[Nokogiri::XML(xml_status).xpath( \
+        '//Data/Job/job_state').children.first.content.downcase.to_sym] \
+        || JOB_STATUS[:k]
+    end
+
+    def check_completed_status
+      jobpath = Pathname.new(jobdir)
+      result_file = jobpath + jobpath.basename + "#{prefix}0001.vtu"
+      std_out = jobpath + (WITH_PBS ? "#{prefix}.o#{jobid.split('.')[0]}" :
+        "#{prefix}.out")
+
+      if std_out.exist?
+        if File.foreach(std_out).enum_for(:grep, /error/i).first.nil?
+          result_file.exist? ? JOB_STATUS[:c] : JOB_STATUS[:f]
+        else
+          JOB_STATUS[:f]
+        end
+      else
+        JOB_STATUS[:f]
       end
     end
 end

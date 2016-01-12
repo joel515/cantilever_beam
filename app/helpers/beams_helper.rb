@@ -24,6 +24,7 @@ module BeamsHelper
 
     if beam
       status = beam.check_status
+      beam.set_status status if status != beam.status
 
       if beam.completed?
         label_class = "label-success"
@@ -31,8 +32,6 @@ module BeamsHelper
         label_class = "label-danger"
       elsif beam.running?
         label_class = "label-primary"
-      elsif beam.terminated?
-        label_class = "label-warning"
       elsif beam.active?
         label_class = "label-info"
       end
