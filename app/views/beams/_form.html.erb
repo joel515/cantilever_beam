@@ -103,16 +103,17 @@
             <tr>
               <td>Result Unit System:</td>
               <td>
-                <div class="styled-select-system blue semi-square">
+<!--                 <div class="styled-select-system blue semi-square"> -->
                   <%= f.select :result_unit_system,
-                  Beam::RESULT_UNITS.map { |k,v| [v[:text], k.to_s] }, {} %>
-                </div>
+                  Beam::RESULT_UNITS.map { |k,v| [v[:text], k.to_s] }, {},
+                  { class: "form-control blue-select" } %>
+<!--                 </div> -->
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <%= f.submit yield(:button_text), class: "btn btn-primary" %>
+      <%= f.submit yield(:button_text), class: "btn btn-success" %>
     </div>
   </div>
 <% end %>

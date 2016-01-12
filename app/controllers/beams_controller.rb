@@ -2,6 +2,7 @@ class BeamsController < ApplicationController
   before_action :set_beam, only: [:show, :submit, :results, :edit, :update,
     :destroy, :clean, :copy, :embed, :kill]
   before_action :get_displayed_result, only: [:results, :embed]
+  before_action :get_last_page, only: [:destroy]
 
   def index
     if Beam.count > 0
@@ -64,7 +65,11 @@ class BeamsController < ApplicationController
     @beam.destroy
     flash[:success] = "Beam deleted."
     if request.referrer.include? index_path
-      redirect_to request.referrer
+      if @last_page > Beam.page.num_pages
+        redirect_to index_path(page: Beam.page.num_pages)
+      else
+        redirect_to request.referrer
+      end
     else
       redirect_to index_url
     end
@@ -123,6 +128,11 @@ class BeamsController < ApplicationController
 
     def get_displayed_result
       @result = params[:result].nil? ? "stress" : params[:result]
+    end
+
+    def get_last_page
+      @last_page =
+        CGI.parse(URI.parse(request.referrer).query)["page"].first.to_i
     end
 
     def generate_duplicate_name(original_name)
