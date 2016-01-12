@@ -83,7 +83,7 @@ class BeamsController < ApplicationController
 
   def copy
     duplicate_beam = @beam.dup
-    duplicate_beam.name = "#{@beam.name}-Copy"
+    duplicate_beam.name = generate_duplicate_name(@beam.name)
     duplicate_beam.ready
     if request.referrer.include? index_path
       redirect_to index_path(page:   Beam.page.num_pages,
@@ -123,5 +123,20 @@ class BeamsController < ApplicationController
 
     def get_displayed_result
       @result = params[:result].nil? ? "stress" : params[:result]
+    end
+
+    def generate_duplicate_name(original_name)
+      suffix = "-Copy"
+      duplicate_name = original_name
+      duplicate_name += suffix unless original_name.include? suffix
+      iter = 1
+      while Beam.where("lower(name) =?", duplicate_name.downcase).first
+        duplicate_name.slice!((0...duplicate_name.length).find_all \
+          { |i| duplicate_name[i, suffix.length] == suffix }.last + \
+          suffix.length)
+        duplicate_name += iter.to_s
+        iter += 1
+      end
+      duplicate_name
     end
 end
