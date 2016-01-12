@@ -51,6 +51,7 @@ class BeamsController < ApplicationController
   def update
     if @beam.update_attributes(beam_params)
       @beam.delete_staging_directories
+      @beam.ready
       flash[:success] = "Successully updated #{@beam.name}."
       redirect_to @beam
     else
