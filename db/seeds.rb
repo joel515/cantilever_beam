@@ -19,6 +19,44 @@ Beam.create!(name: "Units Test",
              load_unit: "kgf",
              result_unit_system: "imperial_ksi")
 
+Beam.create!(name: "Long Beam",
+             length: 1.0,
+             width: 5.0,
+             height: 5.0,
+             material: "Steel",
+             modulus: 200.0,
+             poisson: 0.29,
+             density: 7600,
+             meshsize: 0.5,
+             load: 0.0,
+             length_unit: "m",
+             width_unit: "mm",
+             height_unit: "mm",
+             modulus_unit: "gpa",
+             density_unit: "kgm3",
+             meshsize_unit: "mm",
+             load_unit: "n",
+             result_unit_system: "metric_mpa")
+
+Beam.create!(name: "Stubby Beam",
+             length: 30.0,
+             width: 30.0,
+             height: 30.0,
+             material: "Steel",
+             modulus: 200.0,
+             poisson: 0.29,
+             density: 7600,
+             meshsize: 1.0,
+             load: 1000.0,
+             length_unit: "mm",
+             width_unit: "mm",
+             height_unit: "mm",
+             modulus_unit: "gpa",
+             density_unit: "kgm3",
+             meshsize_unit: "mm",
+             load_unit: "n",
+             result_unit_system: "metric_mpa")
+
 mesharray.each do |n|
   name = "Steel Beam #{n}mm"
   meshsize = n.to_f / 1000
