@@ -23,6 +23,10 @@ class Beam < ActiveRecord::Base
   validates :density_unit,  presence: true
   validates :load_unit,     presence: true
   validates :status,        presence: true
+  validates :cores, presence: true,
+                    numericality: { only_integer: true,
+                                    greater_than_or_equal_to: 1,
+                                    less_than_or_equal_to: 16 }
 
   SERVER = `hostname`.strip.to_sym
 

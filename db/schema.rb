@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20160107220815) do
+ActiveRecord::Schema.define(version: 20160113232410) do
 
   create_table "beams", force: :cascade do |t|
     t.string   "name"
@@ -37,6 +37,7 @@ ActiveRecord::Schema.define(version: 20160107220815) do
     t.string   "load_unit",          default: "n"
     t.string   "result_unit_system", default: "metric_mpa"
     t.string   "jobid"
+    t.integer  "cores",              default: 1
   end
 
   add_index "beams", ["name"], name: "index_beams_on_name", unique: true
