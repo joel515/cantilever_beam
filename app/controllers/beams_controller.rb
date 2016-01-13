@@ -36,12 +36,13 @@ class BeamsController < ApplicationController
   end
 
   def submit
-    @beam.submit
+    @beam.submit if @beam.ready?
     if @beam.submitted?
       flash[:success] = "Simulation for #{@beam.name} successfully submitted!"
     else
       flash[:danger] = "Submission for #{@beam.name} failed."
     end
+
     if request.referrer.include? index_path
       redirect_to request.referrer
     else
@@ -50,20 +51,30 @@ class BeamsController < ApplicationController
   end
 
   def update
-    if @beam.update_attributes(beam_params)
-      @beam.delete_staging_directories
-      @beam.ready
-      flash[:success] = "Successully updated #{@beam.name}."
-      redirect_to @beam
+    if @beam.editable?
+      if @beam.update_attributes(beam_params)
+        @beam.delete_staging_directories
+        @beam.ready
+        flash[:success] = "Successully updated #{@beam.name}."
+        redirect_to @beam
+      else
+        render 'edit'
+      end
     else
+      flash[:danger] = "#{@beam.name} is not editable at this time."
       render 'edit'
     end
   end
 
   def destroy
-    @beam.delete_staging_directories
-    @beam.destroy
-    flash[:success] = "Beam deleted."
+    if @beam.destroyable?
+      @beam.delete_staging_directories
+      @beam.destroy
+      flash[:success] = "Beam deleted."
+    else
+      flash[:danger] = "Beam cannot be deleted at this time."
+    end
+
     if request.referrer.include? index_path
       if @last_page > Beam.page.num_pages
         redirect_to index_path(page: Beam.page.num_pages)
@@ -76,9 +87,14 @@ class BeamsController < ApplicationController
   end
 
   def clean
-    @beam.delete_staging_directories
-    @beam.ready
-    flash[:success] = "Job directory successfully deleted."
+    if @beam.cleanable?
+      @beam.delete_staging_directories
+      @beam.ready
+      flash[:success] = "Job directory successfully deleted."
+    else
+      flash[:danger] = "Beam cannot be cleaned at this time."
+    end
+
     if request.referrer.include? results_beam_path
       redirect_to @beam
     else
@@ -103,8 +119,13 @@ class BeamsController < ApplicationController
   end
 
   def kill
-    @beam.kill
-    flash[:success] = "Terminating job for #{@beam.name}."
+    if @beam.terminatable?
+      @beam.kill
+      flash[:success] = "Terminating job for #{@beam.name}."
+    else
+      flash[:danger] = "Job for #{@beam.name} is not running."
+    end
+
     if request.referrer.include? index_path
       redirect_to request.referrer
     else
