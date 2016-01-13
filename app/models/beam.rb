@@ -204,7 +204,7 @@ class Beam < ActiveRecord::Base
   def ready
     self.jobid = nil
     self.jobdir = nil
-    set_status :u
+    set_status! :u
   end
 
   def submitted?
@@ -247,67 +247,26 @@ class Beam < ActiveRecord::Base
     end
 
     # If successful, set the status to "Submitted" and save to database.
-    unless jobid.nil?
+    unless jobid.nil? || jobid.empty?
       self.jobid = jobid.strip
-      set_status :b
+      set_status! :b
     else
-      set_status :f
+      self.jobid = nil
+      set_status! :f
     end
   end
 
-  # Check the job's status.  Use qstat if submitted via PBS.
+  # Check the job's status.  Use qstat if submitted via PBS, otherwise check
+  # the child PIDs from the submitted group PID.
   def check_status
-    if WITH_PBS
-      return status if jobid.nil?
+    return status if jobid.nil?
 
-      xml_status = `qstat #{jobid} -x`
-      unless xml_status.nil? || xml_status.empty?
-        state = check_xml_status(xml_status)
-        completed?(state) ? check_completed_status : state
-      else
-        failed? ? status : check_completed_status
-      end
+    pre_status = `#{check_status_command}`
+    unless pre_status.nil? || pre_status.empty?
+      state = check_process_status(pre_status)
+      completed?(state) ? check_completed_status : state
     else
-      if jobdir.nil? || jobdir.empty?
-        if submitted? || active? || running?
-            self.status = JOB_STATUS[:f]
-        else
-          status
-        end
-      else
-        file_prefix = prefix
-        jobpath = Pathname.new(jobdir)
-        result_file = jobpath + jobpath.basename + "#{file_prefix}0001.vtu"
-        fem_out = jobpath + "debug/#{file_prefix}.sif.o"
-
-        if !jobpath.directory?
-          if submitted? || active? || running?
-            self.status = JOB_STATUS[:f]
-          else
-            self.status = JOB_STATUS[:u]
-          end
-          self.save
-          status
-        elsif submitted? || running?
-          if result_file.exist?
-            self.status = JOB_STATUS[:c]
-          elsif fem_out.exist?
-            if !File.foreach(fem_out).enum_for(:grep, /error/i).first.nil?
-              self.status = JOB_STATUS[:f]
-            else
-              self.status = JOB_STATUS[:r]
-            end
-          elsif terminated?
-            self.status = JOB_STATUS[:m]
-          else
-            self.status = JOB_STATUS[:r]
-          end
-          self.save
-          status
-        else
-          status
-        end
-      end
+      failed? ? status : check_completed_status
     end
   end
 
@@ -319,6 +278,10 @@ class Beam < ActiveRecord::Base
     else
       self.status = JOB_STATUS[:k]
     end
+  end
+
+  def set_status!(arg)
+    set_status(arg)
     self.save
   end
 
@@ -327,7 +290,7 @@ class Beam < ActiveRecord::Base
   def kill
     unless jobid.nil?
       WITH_PBS ? `qdel #{jobid}` : Process.kill("TERM", -jobid.to_i)
-      set_status :m
+      set_status! :m
     end
   end
 
@@ -999,10 +962,25 @@ class Beam < ActiveRecord::Base
       submit_script.exist? ? submit_script : nil
     end
 
-    def check_xml_status(xml_status)
-      JOB_STATUS[Nokogiri::XML(xml_status).xpath( \
-        '//Data/Job/job_state').children.first.content.downcase.to_sym] \
-        || JOB_STATUS[:k]
+    def check_process_status(pre_status)
+      if WITH_PBS
+        JOB_STATUS[Nokogiri::XML(pre_status).xpath( \
+          '//Data/Job/job_state').children.first.content.downcase.to_sym] \
+          || JOB_STATUS[:k]
+      else
+        pids = pre_status.split("\n").count
+        if pids == 1
+          JOB_STATUS[:c]
+        elsif pids > 1
+          JOB_STATUS[:r]
+        else
+          JOB_STATUS[:k]
+        end
+      end
+    end
+
+    def check_status_command
+      WITH_PBS ? "qstat #{jobid} -x" : "pgrep -g #{jobid}"
     end
 
     def check_completed_status

@@ -24,7 +24,7 @@ module BeamsHelper
 
     if beam
       status = beam.check_status
-      beam.set_status status if status != beam.status
+      beam.set_status! status if status != beam.status
 
       if beam.completed?
         label_class = "label-success"
