@@ -11,7 +11,7 @@ class Beam < ActiveRecord::Base
                        numericality: { greater_than_or_equal_to: -1,
                                        less_than_or_equal_to: 0.5 }
   validates :density,  presence: true,
-                       numericality: { greater_than_or_eqaul_to: 0 }
+                       numericality: { greater_than_or_equal_to: 0 }
   validates :material, presence: true
   validates :load,     presence: true,
                        numericality: { greater_than_or_equal_to: 0 }
