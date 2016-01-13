@@ -130,11 +130,16 @@ class BeamsController < ApplicationController
       @result = params[:result].nil? ? "stress" : params[:result]
     end
 
+    # Get the last visited paginated index page when destroying beam.  This
+    # provides input to handle a redirect to the previous pagination if the
+    # beam being deleted is the last one on the page.
     def get_last_page
-      @last_page =
-        CGI.parse(URI.parse(request.referrer).query)["page"].first.to_i
+      query = URI.parse(request.referrer).query
+      @last_page = query.nil? ? 0 : CGI.parse(query)["page"].first.to_i
     end
 
+    # Generate a new name when copying a beam by adding the suffix "-Copy" and
+    # an iterator if necessary.
     def generate_duplicate_name(original_name)
       suffix = "-Copy"
       duplicate_name = original_name
