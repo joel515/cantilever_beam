@@ -36,8 +36,10 @@ class Beam < ActiveRecord::Base
     WITH_PBS =  false
   when :login
     GMSH_EXE =        "/gpfs/apps/gmsh/gmsh-2.8.5-Linux/bin/gmsh"
-    ELMERGRID_EXE =   "/gpfs/apps/elmer/bin/ElmerGrid"
-    ELMERSOLVER_EXE = "/gpfs/apps/elmer/bin/ElmerSolver"
+    # ELMERGRID_EXE =   "/gpfs/apps/elmer/bin/ElmerGrid"
+    # ELMERSOLVER_EXE = "/gpfs/apps/elmer/bin/ElmerSolver"
+    ELMERGRID_EXE = "/gpfs/admin/setup/elmer/old/install-old/bin/ElmerGrid"
+    ELMERSOLVER_EXE = "/gpfs/admin/setup/elmer/old/install-old/bin/ElmerSolver"
     PARAVIEW_EXE =    "/gpfs/home/jkopp/apps/paraview/4.4.0/bin/pvbatch"
     USE_MUMPS = false
     WITH_PBS =  true
@@ -213,6 +215,22 @@ class Beam < ActiveRecord::Base
 
   def terminated?
     [JOB_STATUS[:m], JOB_STATUS[:e]].include? status
+  end
+
+  def destroyable?
+    !active? & !running?
+  end
+
+  def cleanable?
+    !active? & !running? & !ready?
+  end
+
+  def terminatable?
+    active? | running?
+  end
+
+  def editable?
+    !active? & !running?
   end
 
   # Formulate a file/directory prefix using the beam's name by removing all
@@ -941,6 +959,7 @@ class Beam < ActiveRecord::Base
           f.puts "#PBS -N #{prefix}"
           f.puts "#PBS -l nodes=1:ppn=1"
           f.puts "#PBS -j oe"
+          f.puts "module load elmer"
           f.puts "cd $PBS_O_WORKDIR"
         else
           f.puts "cd #{jobpath}"
