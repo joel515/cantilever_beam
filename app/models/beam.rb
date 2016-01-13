@@ -1012,7 +1012,7 @@ class Beam < ActiveRecord::Base
         "#{prefix}.out")
 
       if std_out.exist?
-        if File.foreach(std_out).enum_for(:grep, /error/i).first.nil?
+        if File.foreach(std_out).enum_for(:grep, /error|fail/i).first.nil?
           result_file.exist? ? JOB_STATUS[:c] : JOB_STATUS[:f]
         else
           JOB_STATUS[:f]
