@@ -39,7 +39,7 @@
       </div>
       <div class="panel panel-default">
         <div class="panel-heading">
-          <strong>Boundary Conditions</strong>
+          <strong>Simulation Parameters</strong>
         </div>
         <table class="table">
           <tbody>
@@ -47,19 +47,19 @@
               <%= render 'field', form: f, object: :load, text: nil, constant:
               Beam::FORCE_UNITS, style: "default" %>
             </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="panel panel-default">
-        <div class="panel-heading">
-          <strong>Mesh Properties</strong>
-        </div>
-        <table class="table">
-          <tbody>
             <tr>
               <%= render 'field', form: f, object: :meshsize, text:
               "Global Mesh Size", constant: Beam::DIMENSIONAL_UNITS, style:
               "default" %>
+            </tr>
+            <tr>
+              <td>Number of Cores</td>
+              <td>
+                <%= f.select :cores,
+                (1..16).map { |i| [i.to_s, i] }, {},
+                { class: "form-control blue-select" } %>
+              </td>
+              <td></td>
             </tr>
           </tbody>
         </table>
@@ -96,18 +96,16 @@
       </div>
       <div class="panel panel-default">
         <div class="panel-heading">
-          <strong>Units</strong>
+          <strong>Post Processing</strong>
         </div>
         <table class="table">
           <tbody>
             <tr>
-              <td>Result Unit System:</td>
+              <td>Result Unit System</td>
               <td>
-<!--                 <div class="styled-select-system blue semi-square"> -->
-                  <%= f.select :result_unit_system,
-                  Beam::RESULT_UNITS.map { |k,v| [v[:text], k.to_s] }, {},
-                  { class: "form-control blue-select" } %>
-<!--                 </div> -->
+                <%= f.select :result_unit_system,
+                Beam::RESULT_UNITS.map { |k,v| [v[:text], k.to_s] }, {},
+                { class: "form-control blue-select" } %>
               </td>
             </tr>
           </tbody>

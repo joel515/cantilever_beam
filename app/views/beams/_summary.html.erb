@@ -1,0 +1,25 @@
+<div class="panel panel-default">
+  <div class="panel-heading">
+    <strong>Finite Element Analysis Summary</strong>
+  </div>
+  <table class="table">
+    <thead>
+      <tr>
+        <th></th>
+        <th>Analytical Result</th>
+        <th>Timoshenko Theory</th>
+        <th>Error</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>&delta;<sub>y</sub></td>
+        <%= result_table(@beam, :displacement) %>
+      </tr>
+      <tr>
+        <td>&sigma;<sub>33</sub></td>
+        <%= result_table(@beam, :stress) %>
+      </tr>
+    </tbody>
+  </table>
+</div>

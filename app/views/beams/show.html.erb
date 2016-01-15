@@ -9,15 +9,15 @@
       <table class="table">
         <tbody>
           <tr>
-            <td>Length</td>
+            <td>Length:</td>
             <td><%= number_with_units(@beam, :length) %></td>
           </tr>
           <tr>
-            <td>Width</td>
+            <td>Width:</td>
             <td><%= number_with_units(@beam, :width) %></td>
           </tr>
           <tr>
-            <td>Height</td>
+            <td>Height:</td>
             <td><%= number_with_units(@beam, :height) %></td>
           </tr>
         </tbody>
@@ -25,19 +25,40 @@
     </div>
     <div class="panel panel-default">
       <div class="panel-heading">
-        <strong>Boundary Conditions</strong>
+        <strong>Post Processing</strong>
       </div>
       <table class="table">
         <tbody>
           <tr>
-            <td>Load</td>
-            <td><%= number_with_units(@beam, :load) %></td>
+            <td>Unit System:</td>
+            <td><%= Beam::RESULT_UNITS[@beam.result_unit_system.to_sym][:text] %></td>
           </tr>
         </tbody>
       </table>
     </div>
   </div>
   <div class="col-md-6">
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <strong>Simulation Parameters</strong>
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Load (<%= @beam.unit_text(:load) %>)</th>
+            <th>Global Mesh Size (<%= @beam.unit_text(:meshsize) %>)</th>
+            <th>Number of Cores</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><%= @beam.load %></td>
+            <td><%= @beam.meshsize %></td>
+            <td><%= @beam.cores %></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     <div class="panel panel-default">
       <div class="panel-heading">
         <strong>Material Properties</strong>
@@ -57,19 +78,6 @@
             <td><%= @beam.modulus %></td>
             <td><%= @beam.poisson %></td>
             <td><%= @beam.density %></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="panel panel-default">
-      <div class="panel-heading">
-        <strong>Mesh Properties</strong>
-      </div>
-      <table class="table">
-        <tbody>
-          <tr>
-            <td>Global Mesh Size</td>
-            <td><%= number_with_units(@beam, :meshsize) %></td>
           </tr>
         </tbody>
       </table>

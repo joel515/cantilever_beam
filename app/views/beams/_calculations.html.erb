@@ -1,0 +1,50 @@
+<div class="panel panel-default">
+  <div class="panel-heading">
+    <strong>Calculated Results from Timoshenko Beam Theory</strong>
+  </div>
+  <table class="table">
+    <tbody>
+      <tr>
+        <td>Bending Moment of Inertia</td>
+        <td><%= number_with_units(@beam,
+                                  :inertia,
+                                  is_result: true) %></td>
+      </tr>
+      <tr>
+        <td>Mass</td>
+        <td><%= number_with_units(@beam,
+                                  :mass,
+                                  is_result: true) %></td>
+      </tr>
+      <tr>
+        <td>Reactive Force</td>
+        <td><%= number_with_units(@beam,
+                                  :force_reaction,
+                                  is_result: true) %></td>
+      </tr>
+      <tr>
+        <td>Reactive Moment</td>
+        <td><%= number_with_units(@beam,
+                                  :moment_reaction,
+                                  is_result: true) %></td>
+      </tr>
+      <tr>
+        <td>Maximum Angle</td>
+        <td><%= number_with_precision(@beam.theta,
+                                      precision: 3,
+                                      significant: true) %>&#176;</tr>
+      <tr>
+        <td>Maximum Displacement</td>
+        <td><%= number_with_units(@beam,
+                                  :displacement,
+                                  is_result: true) %></td>
+      </tr>
+      <tr>
+        <td>Maximum Principal Stress</td>
+        <td><%= number_with_units(@beam,
+                                  :stress,
+                                  is_result: true) %></td>
+      </tr>
+    </tbody>
+  </table>
+</div>

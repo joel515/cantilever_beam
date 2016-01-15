@@ -1,0 +1,24 @@
+<div class="embed-responsive embed-responsive-16by9">
+  <iframe class="embed-responsive-item"
+    src=<%= "embed?result=#{@result}" %>>
+  </iframe>
+  <div class="btn-group-vertical btn-group-results">
+    <%= link_to "<strong>&sigma;<sub>zz</sub></strong>".html_safe,
+      results_beam_path(@beam, result: "stress"),
+      class: "btn btn-transparent",
+      data: { toggle: 'tooltip', placement: 'top' },
+      title: 'View stress' %>
+    <%= link_to "<strong>&delta;<sub>y</sub></strong>".html_safe,
+      results_beam_path(@beam, result: "displ"),
+      class: "btn btn-transparent",
+      data: { toggle: 'tooltip', placement: 'top' },
+      title: 'View displacement' %>
+    <%= link_to "<span class='glyphicon glyphicon-fullscreen'>" \
+      "</span>".html_safe,
+      embed_beam_path(@beam, result: params[:result]),
+      class: "btn btn-transparent",
+      data: { toggle: 'tooltip', placement: 'top' },
+      title: 'Open in new tab',
+      target: "_blank" %>
+  </div>
+</div>

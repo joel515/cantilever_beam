@@ -1,0 +1,49 @@
+<div class="panel panel-default">
+  <div class="panel-heading">
+    <strong>Input Dimensions, Loads, and Parameters</strong>
+  </div>
+  <table class="table">
+    <tbody>
+      <tr>
+        <td>Length</td>
+        <td><%= number_with_units(@beam, :length) %></td>
+      </tr>
+      <tr>
+        <td>Width</td>
+        <td><%= number_with_units(@beam, :width) %></td>
+      </tr>
+      <tr>
+        <td>Height</td>
+        <td><%= number_with_units(@beam, :height) %></td>
+      </tr>
+      <tr>
+        <td>Material</td>
+        <td><%= @beam.material %></td>
+      </tr>
+      <tr>
+        <td>&nbsp;&nbsp;&bull; Modulus of Elasticity</td>
+        <td><%= number_with_units(@beam, :modulus) %></td>
+      </tr>
+      <tr>
+        <td>&nbsp;&nbsp;&bull; Poisson's Ratio</td>
+        <td><%= @beam.poisson %></td>
+      </tr>
+      <tr>
+        <td>&nbsp;&nbsp;&bull; Density</td>
+        <td><%= number_with_units(@beam, :density) %></td>
+      </tr>
+      <tr>
+        <td>End Load</td>
+        <td><%= number_with_units(@beam, :load) %></td>
+      </tr>
+      <tr>
+        <td>Hexogonal Mesh Size</td>
+        <td><%= number_with_units(@beam, :meshsize) %></td>
+      </tr>
+      <tr>
+        <td>Number of Cores</td>
+        <td><%= @beam.cores %></td>
+      </tr>
+    </tbody>
+  </table>
+</div>

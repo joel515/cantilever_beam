@@ -15,14 +15,15 @@ class Beam < ActiveRecord::Base
   validates :material, presence: true
   validates :load,     presence: true,
                        numericality: { greater_than_or_equal_to: 0 }
-  validates :length_unit,   presence: true
-  validates :width_unit,    presence: true
-  validates :height_unit,   presence: true
-  validates :meshsize_unit, presence: true
-  validates :modulus_unit,  presence: true
-  validates :density_unit,  presence: true
-  validates :load_unit,     presence: true
-  validates :status,        presence: true
+  validates :length_unit,        presence: true
+  validates :width_unit,         presence: true
+  validates :height_unit,        presence: true
+  validates :meshsize_unit,      presence: true
+  validates :modulus_unit,       presence: true
+  validates :density_unit,       presence: true
+  validates :load_unit,          presence: true
+  validates :status,             presence: true
+  validates :result_unit_system, presence: true
   validates :cores, presence: true,
                     numericality: { only_integer: true,
                                     greater_than_or_equal_to: 1,
@@ -441,6 +442,27 @@ class Beam < ActiveRecord::Base
     else
       false
     end
+  end
+
+  # Capture the FEA stats and return the data as a hash.
+  def fem_stats
+    jobpath = Pathname.new(jobdir)
+    std_out = jobpath + (WITH_PBS ? "#{prefix}.o#{jobid.split('.')[0]}" :
+      "#{prefix}.out")
+
+    nodes, elements, cputime, walltime = nil
+    if std_out.exist?
+      File.foreach(std_out) do |line|
+        nodes    = line.split[6] if line.include? "Number of nodes"
+        elements = line.split[6] if line.include? "Number of elements"
+        cputime  = "#{line.split[3]} s" if line.include? "SOLVER TOTAL TIME"
+        walltime = "#{line.split[4]} s" if line.include? "SOLVER TOTAL TIME"
+      end
+    end
+    Hash["Number of Nodes" => nodes,
+         "Number of Elements" => elements,
+         "CPU Time" => cputime,
+         "Wall Time" => walltime]
   end
 
   # Read the FEM results file and return the data as an array.
