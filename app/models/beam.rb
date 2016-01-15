@@ -254,11 +254,14 @@ class Beam < ActiveRecord::Base
     geom_file = generate_geometry_file
     input_deck = generate_input_deck
     results_script = generate_results_script
+    parse_script = generate_parse_script
 
-    if !geom_file.nil? && !input_deck.nil? && !results_script.nil?
+    if !geom_file.nil? && !input_deck.nil? && !results_script.nil? \
+      && !parse_script.nil?
       submit_script = generate_submit_script(geom_file:      geom_file,
                                              input_deck:     input_deck,
-                                             results_script: results_script)
+                                             results_script: results_script,
+                                             parse_script:   parse_script)
 
       if !submit_script.nil?
         Dir.chdir(jobdir) {
@@ -433,16 +436,13 @@ class Beam < ActiveRecord::Base
   end
 
   # Check if the .dat.names file has the 'stress_zz' keyword.
-  def stress_results_ok?
-    jobpath = Pathname.new(jobdir)
-    data_name_file = jobpath + "#{prefix}.dat.names"
+  # def stress_results_ok?
+  #   jobpath = Pathname.new(jobdir)
+  #   mesh_file = jobpath + "#{prefix}.msh"
+  #   result_file = jobpath + jobpath.basename + "#{prefix}.result"
 
-    if data_name_file.exist?
-      File.foreach(data_name_file).grep(/8: value: stress_zz/).any?
-    else
-      false
-    end
-  end
+  #   mesh_file.exist? && result_file.exist?
+  # end
 
   # Capture the FEA stats and return the data as a hash.
   def fem_stats
@@ -482,12 +482,17 @@ class Beam < ActiveRecord::Base
   # the dat file is maximum y displacement, the second is minimum.  Return the
   # greater of the two absolute values.
   def displacement_fem
-    results = fem_results
-    if displacement_results_ok? && !results.nil?
-      results[0].abs > results[1].abs ? results[0] : results[1]
-    else
-      nil
-    end
+    # results = fem_results
+    # if displacement_results_ok? && !results.nil?
+    #   results[0].abs > results[1].abs ? results[0] : results[1]
+    # else
+    #   nil
+    # end
+
+    jobpath = Pathname.new(jobdir)
+    displ_file = jobpath + "#{prefix}.displ"
+
+    displ_file.exist? ? File.foreach(displ_file).first.strip.to_f : nil
   end
 
   # Extract the stress results from the results file.
@@ -495,16 +500,10 @@ class Beam < ActiveRecord::Base
   # wall and boundary condition effects.  This probed stress is then linearly
   # interpolated to the wall to determine peak stress.
   def stress_fem
-    results = fem_results
-    if stress_results_ok? && !results.nil?
-      probe_y = results[13]
-      probe_z = results[14]
-      factor = convert(:length) * convert(:height) / \
-        ((convert(:length) - probe_z) * (2 * probe_y - convert(:height)))
-      factor * results[7].abs
-    else
-      nil
-    end
+    jobpath = Pathname.new(jobdir)
+    stress_file = jobpath + "#{prefix}.stress"
+
+    stress_file.exist? ? File.foreach(stress_file).first.strip.to_f : nil
   end
 
   # Calcaulte the FEM displacement error as a percentage of theory value.
@@ -518,10 +517,11 @@ class Beam < ActiveRecord::Base
   def stress_error
     s = stress
     s_fem = stress_fem
-    (s_fem - s) / s * 100 if (stress_results_ok? && !s_fem.nil?)
+    (s_fem - s) / s * 100 if !s_fem.nil?
   end
 
-  # Gets the Paraview generated WebGL file - returns empty string if nonexistant.
+  # Gets the Paraview generated WebGL file - returns empty string if
+  # nonexistant.
   def graphics_file(type=:stress)
     jobpath = Pathname.new(jobdir)
     results_dir = jobpath + jobpath.basename
@@ -692,7 +692,7 @@ class Beam < ActiveRecord::Base
         f.puts "  Variable 1 = Displacement 2"
         f.puts "  Operator 1 = max"
         f.puts "  Operator 2 = min"
-        f.puts "  Save Coordinates(1,3) = #{w / 2} #{h} #{l / 2}"
+        # f.puts "  Save Coordinates(1,3) = #{w / 2} #{h} #{l / 2}"
         f.puts "End"
         f.puts ""
         f.puts "Equation 1"
@@ -967,6 +967,99 @@ class Beam < ActiveRecord::Base
       paraview_script.exist? ? paraview_script : nil
     end
 
+    def generate_parse_script
+      jobpath = Pathname.new(jobdir)
+      parse_script = jobpath + "#{prefix}.rb"
+      mesh_file = jobpath + "#{prefix}.msh"
+      result_file = jobpath + jobpath.basename + "#{prefix}.result"
+      stress_file = jobpath + "#{prefix}.stress"
+      data_name_file = jobpath + "#{prefix}.dat.names"
+      data_file = jobpath + "#{prefix}.dat"
+      displacement_file = jobpath + "#{prefix}.displ"
+      l = convert(:length)
+      w = convert(:width)
+      h = convert(:height)
+      targetx = w / 2
+      targety = h
+      targetz = l / 2
+
+      File.open(parse_script, 'w') do |f|
+        f.puts "#!#{`which ruby`}"
+
+        f.puts "stress = nil"
+        f.puts "if File.exist?(\"#{mesh_file}\") && " \
+          "File.exist?(\"#{result_file}\")"
+        f.puts "  start = false"
+        f.puts "  nodes = 0"
+        f.puts "  nodeid = 0"
+        f.puts "  dSum = #{[l, w, h].max}"
+        f.puts "  x, y, z = 0.0, 0.0, 0.0"
+        f.puts "  File.foreach(\"#{mesh_file}\") do |line|"
+        f.puts "    break if line.include? \"$EndNodes\""
+        f.puts "    if nodes > 0"
+        f.puts "      node = line.split"
+        f.puts "      dSumNew = (node[1].to_f - #{targetx}).abs +"
+        f.puts "        (node[2].to_f - #{targety}).abs + (node[3].to_f - " \
+          "#{targetz}).abs"
+        f.puts "      if dSumNew < dSum"
+        f.puts "        nodeid = node[0]"
+        f.puts "        x = node[1].to_f"
+        f.puts "        y = node[2].to_f"
+        f.puts "        z = node[3].to_f"
+        f.puts "        dSum = dSumNew"
+        f.puts "      end"
+        f.puts "      next"
+        f.puts "    end"
+        f.puts "    if start"
+        f.puts "      nodes = line.strip.to_i"
+        f.puts "      start = false"
+        f.puts "    end"
+        f.puts "    start = true if line.include? \"$Nodes\""
+        f.puts "  end"
+        f.puts ""
+        f.puts "  startIter = false"
+        f.puts "  startParse = false"
+        f.puts "  iter = 0"
+        f.puts "  File.foreach(\"#{result_file}\") do |line|"
+        f.puts "    if startIter"
+        f.puts "      if iter == nodeid.to_i"
+        f.puts "        factor = #{l} * #{h} / ((#{l} - z) * (2 * y - #{h}))"
+        f.puts "        stress = line.strip.to_f * factor"
+        f.puts "        break"
+        f.puts "      else"
+        f.puts "        iter += 1"
+        f.puts "      end"
+        f.puts "      next"
+        f.puts "    end"
+        f.puts "    if startParse"
+        f.puts "      startIter = true if line.include?(\"stress_zz\")"
+        f.puts "      next"
+        f.puts "    end"
+        f.puts "    startParse = true if line.include?(\"Time:\")"
+        f.puts "  end"
+        f.puts "end"
+        f.puts ""
+        f.puts "File.open(\"#{stress_file}\", 'w') { |f| f.puts stress } if " \
+          "!stress.nil?"
+        f.puts ""
+        f.puts "displacement = nil"
+        f.puts "if File.exist?(\"#{data_name_file}\") && File.exist?(\"#{data_file}\")"
+        f.puts "  if File.foreach(\"#{data_name_file}\").grep(/1: max: displacement 2/).any? && " \
+          "File.foreach(\"#{data_name_file}\").grep(/2: min: displacement 2/).any?"
+        f.puts "    File.foreach(\"#{data_file}\") do |line|"
+        f.puts "      data = line.strip.split.map(&:to_f)"
+        f.puts "      displacement = data[0].abs > data[1].abs ? data[0] : data[1] unless data.empty?"
+        f.puts "    end"
+        f.puts "  end"
+        f.puts "end"
+        f.puts ""
+        f.puts "File.open(\"#{displacement_file}\", 'w') { |f| f.puts displacement } if " \
+          "!displacement.nil?"
+      end
+
+      parse_script.exist? ? parse_script : nil
+    end
+
     # Write the Bash script used to submit the job to the cluster.  The job
     # first generates the geometry and mesh using GMSH, converts the mesh to
     # Elmer format using ElmerGrid, solves using ElmerSolver, then creates
@@ -977,9 +1070,10 @@ class Beam < ActiveRecord::Base
       mesh_file = "#{geom_file.basename(geom_file.extname)}.msh"
       input_deck = Pathname.new(args[:input_deck]).basename
       results_script = Pathname.new(args[:results_script]).basename
+      parse_script = Pathname.new(args[:parse_script]).basename
       submit_script = jobpath + "#{prefix}.sh"
       File.open(submit_script, 'w') do |f|
-        f.puts "#!/bin/bash"
+        f.puts "#!#{`which bash`.strip}"
 
         if WITH_PBS
           f.puts "#PBS -N #{prefix}"
@@ -994,6 +1088,7 @@ class Beam < ActiveRecord::Base
         f.puts "#{GMSH_EXE} #{geom_file} -3"
         f.puts "#{ELMERGRID_EXE} 14 2 #{mesh_file} -autoclean"
         f.puts "#{ELMERSOLVER_EXE} #{input_deck}"
+        f.puts "#{`which ruby`.strip} #{parse_script}"
 
         if WITH_PBS
           f.puts "cd $PBS_O_WORKDIR/#{prefix}"
