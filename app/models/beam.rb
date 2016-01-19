@@ -422,28 +422,6 @@ class Beam < ActiveRecord::Base
     moment_reaction.abs * convert(:height) / (2 * inertia)
   end
 
-  # Check if the .dat.names file has the 'stress_zz' keyword.
-  def displacement_results_ok?
-    jobpath = Pathname.new(jobdir)
-    data_name_file = jobpath + "#{prefix}.dat.names"
-
-    if data_name_file.exist?
-      File.foreach(data_name_file).grep(/1: max: displacement 2/).any? &&
-      File.foreach(data_name_file).grep(/2: min: displacement 2/).any?
-    else
-      false
-    end
-  end
-
-  # Check if the .dat.names file has the 'stress_zz' keyword.
-  # def stress_results_ok?
-  #   jobpath = Pathname.new(jobdir)
-  #   mesh_file = jobpath + "#{prefix}.msh"
-  #   result_file = jobpath + jobpath.basename + "#{prefix}.result"
-
-  #   mesh_file.exist? && result_file.exist?
-  # end
-
   # Capture the FEA stats and return the data as a hash.
   def fem_stats
     jobpath = Pathname.new(jobdir)
@@ -465,59 +443,31 @@ class Beam < ActiveRecord::Base
          "Wall Time" => walltime]
   end
 
-  # Read the FEM results file and return the data as an array.
-  def fem_results
-    jobpath = Pathname.new(jobdir)
-    data_file = jobpath + "#{prefix}.dat"
+  def displacement_fem
+    fem_result(:displacement)
+  end
 
-    if data_file.exist?
-      results = File.readlines(data_file).map { |line| line.split.map(&:to_f) }
-      results[0] unless results.empty? | nil
-    else
+  def stress_fem
+    fem_result(:stress)
+  end
+
+  # Read the result extracted from the parser submitted with the simulation.
+  def fem_result(type)
+    jobpath = Pathname.new(jobdir)
+    result_file = jobpath + "#{prefix}.#{type.to_s}"
+
+    result_file.exist? ? File.foreach(result_file).first.strip.to_f : nil
+  end
+
+  # Calulate the simulation error with respect to beam theory prediction.
+  def error(type)
+    begin
+      theory = self.send(type.to_s)
+      fem = fem_result(type)
+      theory != 0.0 && !fem.nil? ? (fem - theory) / theory * 100 : nil
+    rescue
       nil
     end
-  end
-
-  # Extract the displacement results from the results file.  The first entry in
-  # the dat file is maximum y displacement, the second is minimum.  Return the
-  # greater of the two absolute values.
-  def displacement_fem
-    # results = fem_results
-    # if displacement_results_ok? && !results.nil?
-    #   results[0].abs > results[1].abs ? results[0] : results[1]
-    # else
-    #   nil
-    # end
-
-    jobpath = Pathname.new(jobdir)
-    displ_file = jobpath + "#{prefix}.displ"
-
-    displ_file.exist? ? File.foreach(displ_file).first.strip.to_f : nil
-  end
-
-  # Extract the stress results from the results file.
-  # Stresses are extracted at the beam midpoint due to singularities at the
-  # wall and boundary condition effects.  This probed stress is then linearly
-  # interpolated to the wall to determine peak stress.
-  def stress_fem
-    jobpath = Pathname.new(jobdir)
-    stress_file = jobpath + "#{prefix}.stress"
-
-    stress_file.exist? ? File.foreach(stress_file).first.strip.to_f : nil
-  end
-
-  # Calcaulte the FEM displacement error as a percentage of theory value.
-  def displacement_error
-    d = displacement
-    d_fem = displacement_fem
-    (d_fem - d) / d * 100 if (displacement_results_ok? && !d_fem.nil?)
-  end
-
-  # Calcaulte the FEM stress error as a percentage of theory value.
-  def stress_error
-    s = stress
-    s_fem = stress_fem
-    (s_fem - s) / s * 100 if !s_fem.nil?
   end
 
   # Gets the Paraview generated WebGL file - returns empty string if
@@ -618,7 +568,6 @@ class Beam < ActiveRecord::Base
       result_file = "#{prefix}.vtu"
       output_file = "#{prefix}.result"
 
-      l = convert(:length)
       w = convert(:width)
       h = convert(:height)
       e = convert(:modulus)
@@ -692,7 +641,6 @@ class Beam < ActiveRecord::Base
         f.puts "  Variable 1 = Displacement 2"
         f.puts "  Operator 1 = max"
         f.puts "  Operator 2 = min"
-        # f.puts "  Save Coordinates(1,3) = #{w / 2} #{h} #{l / 2}"
         f.puts "End"
         f.puts ""
         f.puts "Equation 1"
@@ -967,6 +915,13 @@ class Beam < ActiveRecord::Base
       paraview_script.exist? ? paraview_script : nil
     end
 
+    # Generate a parse script to extract results to be run after the simulation
+    # is completed.
+    # Displacement - The first entry in the dat file is maximum y displacement,
+    # the second is minimum.  Return the greater of the two absolute values.
+    # Stress - Stresses are extracted at the beam midpoint due to singularities
+    # at the wall and boundary condition effects.  This probed stress is then
+    # linearly interpolated to the wall to determine peak stress.
     def generate_parse_script
       jobpath = Pathname.new(jobdir)
       parse_script = jobpath + "#{prefix}.rb"
@@ -975,7 +930,7 @@ class Beam < ActiveRecord::Base
       stress_file = jobpath + "#{prefix}.stress"
       data_name_file = jobpath + "#{prefix}.dat.names"
       data_file = jobpath + "#{prefix}.dat"
-      displacement_file = jobpath + "#{prefix}.displ"
+      displacement_file = jobpath + "#{prefix}.displacement"
       l = convert(:length)
       w = convert(:width)
       h = convert(:height)
@@ -985,7 +940,6 @@ class Beam < ActiveRecord::Base
 
       File.open(parse_script, 'w') do |f|
         f.puts "#!#{`which ruby`}"
-
         f.puts "stress = nil"
         f.puts "if File.exist?(\"#{mesh_file}\") && " \
           "File.exist?(\"#{result_file}\")"
@@ -1043,18 +997,21 @@ class Beam < ActiveRecord::Base
           "!stress.nil?"
         f.puts ""
         f.puts "displacement = nil"
-        f.puts "if File.exist?(\"#{data_name_file}\") && File.exist?(\"#{data_file}\")"
-        f.puts "  if File.foreach(\"#{data_name_file}\").grep(/1: max: displacement 2/).any? && " \
-          "File.foreach(\"#{data_name_file}\").grep(/2: min: displacement 2/).any?"
+        f.puts "if File.exist?(\"#{data_name_file}\") && File.exist?" \
+          "(\"#{data_file}\")"
+        f.puts "  if File.foreach(\"#{data_name_file}\").grep(/1: max: " \
+          "displacement 2/).any? && File.foreach(\"#{data_name_file}\")." \
+          "grep(/2: min: displacement 2/).any?"
         f.puts "    File.foreach(\"#{data_file}\") do |line|"
         f.puts "      data = line.strip.split.map(&:to_f)"
-        f.puts "      displacement = data[0].abs > data[1].abs ? data[0] : data[1] unless data.empty?"
+        f.puts "      displacement = data[0].abs > data[1].abs ? data[0] : " \
+          "data[1] unless data.empty?"
         f.puts "    end"
         f.puts "  end"
         f.puts "end"
         f.puts ""
-        f.puts "File.open(\"#{displacement_file}\", 'w') { |f| f.puts displacement } if " \
-          "!displacement.nil?"
+        f.puts "File.open(\"#{displacement_file}\", 'w') { |f| f.puts " \
+          "displacement } if !displacement.nil?"
       end
 
       parse_script.exist? ? parse_script : nil

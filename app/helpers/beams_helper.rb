@@ -164,7 +164,7 @@ module BeamsHelper
       (result.to_s<<"_fem").to_sym, is_result: true) : "N/A"
     theory_result = number_with_units(beam, result, is_result: true)
 
-    error = beam.send(result.to_s<<"_error")
+    error = beam.error(result)
     if !error.nil?
       if error.abs <= 5
         formatted_error = content_tag(:font, "%.2f%" % error, color: "green")
