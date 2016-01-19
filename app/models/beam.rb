@@ -255,6 +255,7 @@ class Beam < ActiveRecord::Base
     input_deck = generate_input_deck
     results_script = generate_results_script
     parse_script = generate_parse_script
+    generate_start_file(input_deck: input_deck) if use_mpi?
 
     if !geom_file.nil? && !input_deck.nil? && !results_script.nil? \
       && !parse_script.nil?
@@ -496,6 +497,10 @@ class Beam < ActiveRecord::Base
 
     private
 
+    def use_mpi?
+      cores > 1
+    end
+
     # Create the following directories as job staging in the user's home.
     # $HOME/Scratch/<beam name>
     # TODO: Add error checking if directories cannot be created.
@@ -628,8 +633,9 @@ class Beam < ActiveRecord::Base
         f.puts "  Nonlinear System Newton After Iterations = 3"
         f.puts "  Nonlinear System Newton After Tolerance = 1.0e-3"
         f.puts "  Nonlinear System Relaxation Factor = 1"
-        f.puts "  Linear System Solver = Direct" if USE_MUMPS == true
-        f.puts "  Linear System Direct Method = MUMPS" if USE_MUMPS == true
+        f.puts "  Linear System Solver = Direct" if USE_MUMPS
+        f.puts "  Linear System Direct Method = MUMPS" if USE_MUMPS
+        f.puts "  Parallel Reduce = Logical True" if use_mpi?
         f.puts "End"
         f.puts ""
         f.puts "Solver 2"
@@ -641,6 +647,7 @@ class Beam < ActiveRecord::Base
         f.puts "  Variable 1 = Displacement 2"
         f.puts "  Operator 1 = max"
         f.puts "  Operator 2 = min"
+        f.puts "  Parallel Reduce = Logical True" if use_mpi?
         f.puts "End"
         f.puts ""
         f.puts "Equation 1"
@@ -690,7 +697,8 @@ class Beam < ActiveRecord::Base
       #       results can be used for scaling.
       jobpath = Pathname.new(jobdir)
       results_dir = jobpath + jobpath.basename
-      results_file = results_dir + "#{prefix}0001.vtu"
+      results_file = use_mpi? ? results_dir + "#{prefix}0001.pvtu" :
+        results_dir + "#{prefix}0001.vtu"
       paraview_script = results_dir + "#{prefix}.py"
       webgl_stress_file = results_dir + "#{prefix}_stress.webgl"
       webgl_displ_file = results_dir + "#{prefix}_displ.webgl"
@@ -736,20 +744,30 @@ class Beam < ActiveRecord::Base
         f.puts "paraview.simple._DisableFirstRenderCameraReset()"
 
         # Import the deformed beam geometry and data
-        f.puts "beamvtu = XMLUnstructuredGridReader(FileName=" \
+        f.puts "beamvtu = " \
+          "XML#{'Partitioned' if use_mpi?}UnstructuredGridReader(FileName=" \
           "[\"#{results_file}\"])"
         f.puts "beamvtu.CellArrayStatus = ['GeometryIds']"
         f.puts "beamvtu.PointArrayStatus = ['stress_xx', 'stress_yy', " \
           "'stress_zz', 'stress_xy', 'stress_yz', 'stress_xz', 'vonmises', " \
           "'displacement']"
 
-        # get active view
+        # Get active view
         f.puts "renderView1 = GetActiveViewOrCreate('RenderView')"
+
+        # If we ran parallel, the partition ends will show up unless we set the
+        # geometry id thresholds to exclude them.
+        if use_mpi?
+          f.puts "threshold1 = Threshold(Input=beamvtu)"
+          f.puts "threshold1.Scalars = ['CELLS', 'GeometryIds']"
+          f.puts "threshold1.ThresholdRange = [100.0, 102.0]"
+        end
 
         # Create a new 'Warp By Vector' to display undeformed mesh.  Geometry
         # comes into into Paraview already displaced.  Set scale factor to -1.0
         # to back out undeformed geometry.
-        f.puts "warpByVector1 = WarpByVector(Input=beamvtu)"
+        f.puts "warpByVector1 = WarpByVector(Input=" \
+          "#{use_mpi? ? 'threshold1' : 'beamvtu'})"
         f.puts "warpByVector1.Vectors = ['POINTS', 'displacement']"
         f.puts "warpByVector1.ScaleFactor = -1.0"
         f.puts "warpByVector1Display = Show(warpByVector1, renderView1)"
@@ -763,7 +781,8 @@ class Beam < ActiveRecord::Base
         # Create a new 'Warp By Vector' to display deformed geometry.  Geometry
         # comes into into Paraview already displaced.  Subtract 1 from scale to
         # get true scale.
-        f.puts "warpByVector2 = WarpByVector(Input=beamvtu)"
+        f.puts "warpByVector2 = WarpByVector(Input=" \
+          "#{use_mpi? ? 'threshold1' : 'beamvtu'})"
         f.puts "warpByVector2.Vectors = ['POINTS', 'displacement']"
         f.puts "warpByVector2.ScaleFactor = #{displ_scale - 1}"
         f.puts "warpByVector2Display = Show(warpByVector2, renderView1)"
@@ -771,6 +790,7 @@ class Beam < ActiveRecord::Base
         f.puts "warpByVector2Display.ScalarOpacityUnitDistance = " \
           "0.04268484912825877"
         f.puts "Hide(beamvtu, renderView1)"
+        f.puts "Hide(threshold1, renderView1)" if use_mpi?
 
         # Create a new 'Calculator' to scale results to specified units.
         f.puts "calculator1 = Calculator(Input=warpByVector2)"
@@ -1017,6 +1037,16 @@ class Beam < ActiveRecord::Base
       parse_script.exist? ? parse_script : nil
     end
 
+    def generate_start_file(args)
+      jobpath = Pathname.new(jobdir)
+      start_file = jobpath + "ELMERSOLVER_STARTINFO"
+      input_deck = Pathname.new(args[:input_deck]).basename
+      File.open(start_file, 'w') do |f|
+        f.puts input_deck.to_s
+        f.puts cores.to_s
+      end
+    end
+
     # Write the Bash script used to submit the job to the cluster.  The job
     # first generates the geometry and mesh using GMSH, converts the mesh to
     # Elmer format using ElmerGrid, solves using ElmerSolver, then creates
@@ -1034,7 +1064,7 @@ class Beam < ActiveRecord::Base
 
         if WITH_PBS
           f.puts "#PBS -N #{prefix}"
-          f.puts "#PBS -l nodes=1:ppn=1"
+          f.puts "#PBS -l nodes=1:ppn=#{cores}"
           f.puts "#PBS -j oe"
           f.puts "module load elmer"
           f.puts "cd $PBS_O_WORKDIR"
@@ -1043,9 +1073,11 @@ class Beam < ActiveRecord::Base
         end
 
         f.puts "#{GMSH_EXE} #{geom_file} -3"
-        f.puts "#{ELMERGRID_EXE} 14 2 #{mesh_file} -autoclean"
-        f.puts "#{ELMERSOLVER_EXE} #{input_deck}"
-        f.puts "#{`which ruby`.strip} #{parse_script}"
+        f.puts "#{ELMERGRID_EXE} 14 2 #{mesh_file} " +
+          ("-metis #{cores} 0 " * use_mpi?.to_i) + "-autoclean"
+        f.puts "#{`which mpirun`.strip} -np #{cores} " * use_mpi?.to_i +
+          "#{ELMERSOLVER_EXE} #{input_deck.to_s * (1 - use_mpi?.to_i)}".strip
+        # f.puts "#{`which ruby`.strip} #{parse_script}"
 
         if WITH_PBS
           f.puts "cd $PBS_O_WORKDIR/#{prefix}"
@@ -1082,7 +1114,8 @@ class Beam < ActiveRecord::Base
 
     def check_completed_status
       jobpath = Pathname.new(jobdir)
-      result_file = jobpath + jobpath.basename + "#{prefix}0001.vtu"
+      result_file = jobpath + jobpath.basename +
+        (use_mpi? ? "#{prefix}0001.pvtu" : "#{prefix}0001.vtu")
       std_out = jobpath + (WITH_PBS ? "#{prefix}.o#{jobid.split('.')[0]}" :
         "#{prefix}.out")
 
