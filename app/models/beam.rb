@@ -495,6 +495,11 @@ class Beam < ActiveRecord::Base
     end
   end
 
+  def debug_info
+    debug_file = Pathname.new(jobdir) + "#{prefix}.debug"
+    debug_file.exist? ? File.open(debug_file, 'r').read : nil
+  end
+
     private
 
     def use_mpi?
@@ -948,6 +953,7 @@ class Beam < ActiveRecord::Base
       result_file = jobpath + jobpath.basename + "#{prefix}.result"
       stress_file = jobpath + "#{prefix}.stress"
       displacement_file = jobpath + "#{prefix}.displacement"
+      debug_file = jobpath + "#{prefix}.debug" if Rails.env.development?
       l = convert(:length)
       w = convert(:width)
       h = convert(:height)
@@ -1037,6 +1043,22 @@ class Beam < ActiveRecord::Base
         f.puts "File.open(\"#{displacement_file}\", 'w') { |f|"
         f.puts "  f.puts displacement"
         f.puts "} if !displacement.nil?"
+
+        if Rails.env.development?
+          f.puts "File.open(\"#{debug_file}\", 'w') do |f|"
+          f.puts "  f.puts \"File ID: #{'#{fileid}'}\"" if use_mpi?
+          f.puts "  f.puts \"Node Location: #{'#{nodeloc}'}\""
+          f.puts "  f.puts \"x: #{'#{x}'}\""
+          f.puts "  f.puts \"y: #{'#{y}'}\""
+          f.puts "  f.puts \"z: #{'#{z}'}\""
+          f.puts "  f.puts \"Displacement: #{'#{displacement}'}\""
+          f.puts "  f.puts \"Stress Location: #{'#{stressloc}'}\""
+          f.puts "  f.puts \"Factor: #{'#{factor}'}\""
+          f.puts "  f.puts \"Probed Stress: #{'#{factor != 0 ? stress /
+            factor : nil}'}\""
+          f.puts "  f.puts \"Calculated Stress: #{'#{stress}'}\""
+          f.puts "end"
+        end
       end
 
       parse_script.exist? ? parse_script : nil

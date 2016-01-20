@@ -1,0 +1,4 @@
+<% if params[:controller] == 'beams' && params[:action] == 'results' %>
+  <%= debug Beam.find(params[:id]).debug_info %>
+<% end %>
+<%= debug(params) %>
