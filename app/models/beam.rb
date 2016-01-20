@@ -811,8 +811,10 @@ class Beam < ActiveRecord::Base
           "0.231373, 0.298039, 0.752941, 0.0, 0.865003, 0.865003, 0.865003, " \
           "#{stress_max}, 0.705882, 0.0156863, 0.14902]"
         f.puts "stresszz#{stress_units}LUT.ScalarRangeInitialized = 1.0"
-        f.puts "stresszz#{stress_units}LUT.ApplyPreset('Cool to Warm " \
-          "(Extended)', True)"
+        # f.puts "stresszz#{stress_units}LUT.ApplyPreset('Cool to Warm " \
+        #   "(Extended)', True)"
+        f.puts "stresszz#{stress_units}LUT.ApplyPreset('jet', True)"
+        f.puts "stresszz#{stress_units}LUT.NumberOfTableValues = 8"
 
         # Show the calculated results on the warped geometry
         f.puts "calculator1Display = Show(calculator1, renderView1)"
@@ -827,13 +829,17 @@ class Beam < ActiveRecord::Base
 
         # Set up and show the legend.
         f.puts "calculator1Display.SetScalarBarVisibility(renderView1, True)"
+        # f.puts "stresszz#{stress_units}LUT.RescaleTransferFunction" \
+        #   "(-#{stress_max}, #{stress_max})"
         f.puts "stresszz#{stress_units}LUT.RescaleTransferFunction" \
-          "(-#{stress_max}, #{stress_max})"
+          "(0.0, #{stress_max})"
 
         # Get and modify the stress opacity map.
         f.puts "stresszz#{stress_units}PWF = " \
           "GetOpacityTransferFunction('stresszz#{stress_units}')"
-        f.puts "stresszz#{stress_units}PWF.Points = [-#{stress_max}, 0.0, " \
+        # f.puts "stresszz#{stress_units}PWF.Points = [-#{stress_max}, 0.0, " \
+        #   "0.5, 0.0, #{stress_max}, 1.0, 0.5, 0.0]"
+        f.puts "stresszz#{stress_units}PWF.Points = [0.0, 0.0, " \
           "0.5, 0.0, #{stress_max}, 1.0, 0.5, 0.0]"
         f.puts "stresszz#{stress_units}PWF.ScalarRangeInitialized = 1"
         f.puts "stresszz#{stress_units}PWF.RescaleTransferFunction" \
@@ -913,8 +919,10 @@ class Beam < ActiveRecord::Base
           "0.865003, 0.865003, 0.865003, #{displ_max}, 0.705882, 0.0156863, " \
           "0.14902]"
         f.puts "displacementY#{displ_units}LUT.ScalarRangeInitialized = 1.0"
-        f.puts "displacementY#{displ_units}LUT.ApplyPreset('Cool to Warm " \
-          "(Extended)', True)"
+        # f.puts "displacementY#{displ_units}LUT.ApplyPreset('Cool to Warm " \
+        #   "(Extended)', True)"
+        f.puts "displacementY#{displ_units}LUT.ApplyPreset('jet', True)"
+        f.puts "displacementY#{displ_units}LUT.NumberOfTableValues = 8"
 
         # Get the opacity transfer function for vertical displacement.
         f.puts "displacementY#{displ_units}PWF = " \
@@ -944,9 +952,9 @@ class Beam < ActiveRecord::Base
     # is completed.
     # Displacement - The first entry in the dat file is maximum y displacement,
     # the second is minimum.  Return the greater of the two absolute values.
-    # Stress - Stresses are extracted at the beam midpoint due to singularities
-    # at the wall and boundary condition effects.  This probed stress is then
-    # linearly interpolated to the wall to determine peak stress.
+    # Stress - Stresses are extracted at 3 element lengths from the wall to
+    # avoid singularities near the boundary condition.  This probed stress is
+    # then linearly interpolated to the wall to determine peak stress.
     def generate_parse_script
       jobpath = Pathname.new(jobdir)
       parse_script = jobpath + "#{prefix}.rb"
@@ -959,7 +967,7 @@ class Beam < ActiveRecord::Base
       h = convert(:height)
       targetx = w / 2
       targety = h
-      targetz = l / 2
+      targetz = l * convert(:meshsize) * 3
 
       File.open(parse_script, 'w') do |f|
         f.puts "#!#{`which ruby`}"
