@@ -945,11 +945,11 @@ class Beam < ActiveRecord::Base
     def generate_parse_script
       jobpath = Pathname.new(jobdir)
       parse_script = jobpath + "#{prefix}.rb"
-      mesh_file = jobpath + "#{prefix}.msh"
+      # mesh_file = jobpath + "#{prefix}.msh"
       result_file = jobpath + jobpath.basename + "#{prefix}.result"
       stress_file = jobpath + "#{prefix}.stress"
-      data_name_file = jobpath + "#{prefix}.dat.names"
-      data_file = jobpath + "#{prefix}.dat"
+      # data_name_file = jobpath + "#{prefix}.dat.names"
+      # data_file = jobpath + "#{prefix}.dat"
       displacement_file = jobpath + "#{prefix}.displacement"
       l = convert(:length)
       w = convert(:width)
@@ -961,77 +961,85 @@ class Beam < ActiveRecord::Base
       File.open(parse_script, 'w') do |f|
         f.puts "#!#{`which ruby`}"
         f.puts "stress = nil"
-        f.puts "if File.exist?(\"#{mesh_file}\") && " \
-          "File.exist?(\"#{result_file}\")"
-        f.puts "  start = false"
-        f.puts "  nodes = 0"
-        f.puts "  nodeid = 0"
-        f.puts "  dSum = #{[l, w, h].max}"
-        f.puts "  x, y, z = 0.0, 0.0, 0.0"
-        f.puts "  File.foreach(\"#{mesh_file}\") do |line|"
-        f.puts "    break if line.include? \"$EndNodes\""
-        f.puts "    if nodes > 0"
+        f.puts "dSum = #{[l, w, h].max}"
+        f.puts "x, y, z = nil, nil, nil"
+        f.puts "fileid = nil" if use_mpi?
+        f.puts "nodeloc = nil"
+        if use_mpi?
+          f.puts "(1..#{cores}).each do |i|"
+          f.puts "  node_file_name = \"#{(jobpath + jobpath.basename).to_s + \
+            '/partitioning.' + cores.to_s + '/part.#{i}.nodes'}\""
+        else
+          f.puts "  node_file_name = \"#{jobpath + jobpath.basename +
+            'mesh.nodes'}\""
+        end
+        f.puts "  if File.exist?(node_file_name)"
+        f.puts "    File.foreach(node_file_name) do |line|"
         f.puts "      node = line.split"
-        f.puts "      dSumNew = (node[1].to_f - #{targetx}).abs +"
-        f.puts "        (node[2].to_f - #{targety}).abs + (node[3].to_f - " \
-          "#{targetz}).abs"
+        f.puts "      dSumNew = (node[2].to_f - #{targetx}).abs + " \
+          "(node[3].to_f - #{targety}).abs + "
+        f.puts "        (node[4].to_f - #{targetz}).abs"
         f.puts "      if dSumNew < dSum"
-        f.puts "        nodeid = node[0]"
-        f.puts "        x = node[1].to_f"
-        f.puts "        y = node[2].to_f"
-        f.puts "        z = node[3].to_f"
+        f.puts "        fileid = i-1" if use_mpi?
+        f.puts "        nodeloc = $."
+        f.puts "        x = node[2].to_f"
+        f.puts "        y = node[3].to_f"
+        f.puts "        z = node[4].to_f"
         f.puts "        dSum = dSumNew"
         f.puts "      end"
-        f.puts "      next"
         f.puts "    end"
-        f.puts "    if start"
-        f.puts "      nodes = line.strip.to_i"
-        f.puts "      start = false"
+        f.puts "  end"
+        f.puts "end" if use_mpi?
+        f.puts ""
+        f.puts "result_file_name = #{'!fileid.nil? && ' * use_mpi?.to_i}" \
+          "!nodeloc.nil? && !y.nil? && !z.nil? ?"
+        f.puts "  \"#{result_file}#{use_mpi? ? '.#{fileid}' : ''}\" : nil"
+        f.puts ""
+        f.puts "if !result_file_name.nil? && File.exist?(result_file_name)"
+        f.puts "  startparseloc = nil"
+        f.puts "  File.foreach(result_file_name) do |line|"
+        f.puts "    if line.strip == \"stress_zz\""
+        f.puts "      startparseloc = $."
+        f.puts "      break"
         f.puts "    end"
-        f.puts "    start = true if line.include? \"$Nodes\""
         f.puts "  end"
         f.puts ""
-        f.puts "  startIter = false"
-        f.puts "  startParse = false"
-        f.puts "  iter = 0"
-        f.puts "  File.foreach(\"#{result_file}\") do |line|"
-        f.puts "    if startIter"
-        f.puts "      if iter == nodeid.to_i"
-        f.puts "        factor = #{l} * #{h} / ((#{l} - z) * (2 * y - #{h}))"
-        f.puts "        stress = line.strip.to_f * factor"
-        f.puts "        break"
-        f.puts "      else"
-        f.puts "        iter += 1"
-        f.puts "      end"
-        f.puts "      next"
-        f.puts "    end"
-        f.puts "    if startParse"
-        f.puts "      startIter = true if line.include?(\"stress_zz\")"
-        f.puts "      next"
-        f.puts "    end"
-        f.puts "    startParse = true if line.include?(\"Time:\")"
+        f.puts "  if !startparseloc.nil?"
+        f.puts "    stressloc = startparseloc + nodeloc + 1"
+        f.puts "    result_file = File.open result_file_name"
+        f.puts "    stressloc.times { result_file.gets }"
+        f.puts "    factor = #{l} * #{h} / ((#{l} - z) * (2 * y - #{h}))"
+        f.puts "    stress = $_.strip.to_f * factor"
+        f.puts "    result_file.close"
         f.puts "  end"
         f.puts "end"
         f.puts ""
-        f.puts "File.open(\"#{stress_file}\", 'w') { |f| f.puts stress } if " \
-          "!stress.nil?"
+        f.puts "File.open(\"#{stress_file}\", 'w') { |f|"
+        f.puts "  f.puts stress"
+        f.puts "} if !stress.nil?"
         f.puts ""
+        f.puts "dat_names_file_name = \"#{(jobpath + prefix).to_s +
+          '.dat.names'}\""
+        f.puts "dat_file_name = \"#{(jobpath + prefix).to_s + '.dat'}\""
         f.puts "displacement = nil"
-        f.puts "if File.exist?(\"#{data_name_file}\") && File.exist?" \
-          "(\"#{data_file}\")"
-        f.puts "  if File.foreach(\"#{data_name_file}\").grep(/1: max: " \
-          "displacement 2/).any? && File.foreach(\"#{data_name_file}\")." \
-          "grep(/2: min: displacement 2/).any?"
-        f.puts "    File.foreach(\"#{data_file}\") do |line|"
+        f.puts "if File.exist?(dat_names_file_name) && File.exist?" \
+          "(dat_file_name)"
+        f.puts "  if File.foreach(dat_names_file_name).grep(/1: max: " \
+          "displacement 2/).any? &&"
+        f.puts "      File.foreach(dat_names_file_name).grep(/2: min: " \
+          "displacement 2/).any?"
+        f.puts "    File.foreach(dat_file_name) do |line|"
         f.puts "      data = line.strip.split.map(&:to_f)"
         f.puts "      displacement = data[0].abs > data[1].abs ? data[0] : " \
-          "data[1] unless data.empty?"
+          "data[1] unless"
+        f.puts "        data.empty?"
         f.puts "    end"
         f.puts "  end"
         f.puts "end"
         f.puts ""
-        f.puts "File.open(\"#{displacement_file}\", 'w') { |f| f.puts " \
-          "displacement } if !displacement.nil?"
+        f.puts "File.open(\"#{displacement_file}\", 'w') { |f|"
+        f.puts "  f.puts displacement"
+        f.puts "} if !displacement.nil?"
       end
 
       parse_script.exist? ? parse_script : nil
@@ -1077,7 +1085,7 @@ class Beam < ActiveRecord::Base
           ("-metis #{cores} 0 " * use_mpi?.to_i) + "-autoclean"
         f.puts "#{`which mpirun`.strip} -np #{cores} " * use_mpi?.to_i +
           "#{ELMERSOLVER_EXE} #{input_deck.to_s * (1 - use_mpi?.to_i)}".strip
-        # f.puts "#{`which ruby`.strip} #{parse_script}"
+        f.puts "#{`which ruby`.strip} #{parse_script}"
 
         if WITH_PBS
           f.puts "cd $PBS_O_WORKDIR/#{prefix}"
