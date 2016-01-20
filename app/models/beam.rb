@@ -945,11 +945,8 @@ class Beam < ActiveRecord::Base
     def generate_parse_script
       jobpath = Pathname.new(jobdir)
       parse_script = jobpath + "#{prefix}.rb"
-      # mesh_file = jobpath + "#{prefix}.msh"
       result_file = jobpath + jobpath.basename + "#{prefix}.result"
       stress_file = jobpath + "#{prefix}.stress"
-      # data_name_file = jobpath + "#{prefix}.dat.names"
-      # data_file = jobpath + "#{prefix}.dat"
       displacement_file = jobpath + "#{prefix}.displacement"
       l = convert(:length)
       w = convert(:width)
