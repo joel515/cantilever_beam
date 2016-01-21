@@ -30,6 +30,7 @@ class Beam < ActiveRecord::Base
                                     less_than_or_equal_to: 16 }
 
   SERVER = `hostname`.strip.to_sym
+  SHOW_UNDEFORMED_MESH = false
 
   case SERVER
   when :khaleesi
@@ -772,17 +773,20 @@ class Beam < ActiveRecord::Base
         # Create a new 'Warp By Vector' to display undeformed mesh.  Geometry
         # comes into into Paraview already displaced.  Set scale factor to -1.0
         # to back out undeformed geometry.
-        f.puts "warpByVector1 = WarpByVector(Input=" \
-          "#{use_mpi? ? 'threshold1' : 'beamvtu'})"
-        f.puts "warpByVector1.Vectors = ['POINTS', 'displacement']"
-        f.puts "warpByVector1.ScaleFactor = -1.0"
-        f.puts "warpByVector1Display = Show(warpByVector1, renderView1)"
-        f.puts "warpByVector1Display.ColorArrayName = [None, '']"
-        f.puts "warpByVector1Display.ScalarOpacityUnitDistance = " \
-          "0.04268484912825877"
-        f.puts "warpByVector1Display.SetRepresentationType('Wireframe')"
-        f.puts "warpByVector1Display.Scale = [#{view_scale}, #{view_scale}, "\
-          "#{view_scale}]"
+        if SHOW_UNDEFORMED_MESH
+          f.puts "warpByVector1 = WarpByVector(Input=" \
+            "#{use_mpi? ? 'threshold1' : 'beamvtu'})"
+          f.puts "warpByVector1.Vectors = ['POINTS', 'displacement']"
+          f.puts "warpByVector1.ScaleFactor = -1.0"
+          f.puts "warpByVector1Display = Show(warpByVector1, renderView1)"
+          f.puts "warpByVector1Display.ColorArrayName = [None, '']"
+          f.puts "warpByVector1Display.ScalarOpacityUnitDistance = " \
+            "0.04268484912825877"
+          f.puts "warpByVector1Display.SetRepresentationType('Wireframe')"
+          f.puts "warpByVector1Display.Scale = [#{view_scale}, " \
+            "#{view_scale}, #{view_scale}]"
+          f.puts "warpByVector1Display.Opacity = 0.25"
+        end
 
         # Create a new 'Warp By Vector' to display deformed geometry.  Geometry
         # comes into into Paraview already displaced.  Subtract 1 from scale to
@@ -812,10 +816,8 @@ class Beam < ActiveRecord::Base
           "0.231373, 0.298039, 0.752941, 0.0, 0.865003, 0.865003, 0.865003, " \
           "#{stress_max}, 0.705882, 0.0156863, 0.14902]"
         f.puts "stresszz#{stress_units}LUT.ScalarRangeInitialized = 1.0"
-        # f.puts "stresszz#{stress_units}LUT.ApplyPreset('Cool to Warm " \
-        #   "(Extended)', True)"
-        f.puts "stresszz#{stress_units}LUT.ApplyPreset('jet', True)"
-        f.puts "stresszz#{stress_units}LUT.NumberOfTableValues = 8"
+        f.puts "stresszz#{stress_units}LUT.ApplyPreset('Cool to Warm " \
+          "(Extended)', True)"
 
         # Show the calculated results on the warped geometry
         f.puts "calculator1Display = Show(calculator1, renderView1)"
@@ -830,17 +832,13 @@ class Beam < ActiveRecord::Base
 
         # Set up and show the legend.
         f.puts "calculator1Display.SetScalarBarVisibility(renderView1, True)"
-        # f.puts "stresszz#{stress_units}LUT.RescaleTransferFunction" \
-        #   "(-#{stress_max}, #{stress_max})"
         f.puts "stresszz#{stress_units}LUT.RescaleTransferFunction" \
-          "(0.0, #{stress_max})"
+          "(-#{stress_max}, #{stress_max})"
 
         # Get and modify the stress opacity map.
         f.puts "stresszz#{stress_units}PWF = " \
           "GetOpacityTransferFunction('stresszz#{stress_units}')"
-        # f.puts "stresszz#{stress_units}PWF.Points = [-#{stress_max}, 0.0, " \
-        #   "0.5, 0.0, #{stress_max}, 1.0, 0.5, 0.0]"
-        f.puts "stresszz#{stress_units}PWF.Points = [0.0, 0.0, " \
+        f.puts "stresszz#{stress_units}PWF.Points = [-#{stress_max}, 0.0, " \
           "0.5, 0.0, #{stress_max}, 1.0, 0.5, 0.0]"
         f.puts "stresszz#{stress_units}PWF.ScalarRangeInitialized = 1"
         f.puts "stresszz#{stress_units}PWF.RescaleTransferFunction" \
@@ -860,8 +858,8 @@ class Beam < ActiveRecord::Base
           "#{plane_scale * view_scale}, 1.0]"
         f.puts "plane1Display.Position = " \
           "[#{(1 - plane_scale) * w * view_scale / 2}, " \
-          "#{(1 - plane_scale) * h * view_scale / 2}, 0.0]"
-        f.puts "plane1Display.DiffuseColor = [0.0, 0.0, 0.682]"
+          "#{(1 - plane_scale) * h * view_scale / 2}, #{-0.001 * view_scale}]"
+        f.puts "plane1Display.DiffuseColor = [0.35, 0.35, 0.35]"
 
         # Create an arrow to represent the load visually.
         f.puts "arrow1 = Arrow()"
@@ -920,10 +918,8 @@ class Beam < ActiveRecord::Base
           "0.865003, 0.865003, 0.865003, #{displ_max}, 0.705882, 0.0156863, " \
           "0.14902]"
         f.puts "displacementY#{displ_units}LUT.ScalarRangeInitialized = 1.0"
-        # f.puts "displacementY#{displ_units}LUT.ApplyPreset('Cool to Warm " \
-        #   "(Extended)', True)"
-        f.puts "displacementY#{displ_units}LUT.ApplyPreset('jet', True)"
-        f.puts "displacementY#{displ_units}LUT.NumberOfTableValues = 8"
+        f.puts "displacementY#{displ_units}LUT.ApplyPreset('Cool to Warm " \
+          "(Extended)', True)"
 
         # Get the opacity transfer function for vertical displacement.
         f.puts "displacementY#{displ_units}PWF = " \
