@@ -37,21 +37,22 @@ class Beam < ActiveRecord::Base
     ELMERGRID_EXE =   "/apps/elmer/bin/ElmerGrid"
     ELMERSOLVER_EXE = "/apps/elmer/bin/ElmerSolver"
     PARAVIEW_EXE =    "/apps/paraview/bin/pvbatch"
+    MPI_EXE =         "/usr/bin/mpirun"
     USE_MUMPS = true
     WITH_PBS =  false
   when :login
     GMSH_EXE =        "/gpfs/apps/gmsh/gmsh-2.8.5-Linux/bin/gmsh"
-    # ELMERGRID_EXE =   "/gpfs/apps/elmer/bin/ElmerGrid"
-    # ELMERSOLVER_EXE = "/gpfs/apps/elmer/bin/ElmerSolver"
-    ELMERGRID_EXE = "/gpfs/admin/setup/elmer/old/install-old/bin/ElmerGrid"
-    ELMERSOLVER_EXE = "/gpfs/admin/setup/elmer/old/install-old/bin/ElmerSolver"
+    ELMERGRID_EXE =   "ElmerGrid"
+    ELMERSOLVER_EXE = "ElmerSolver"
+    MPI_EXE =         "mpirun"
     PARAVIEW_EXE =    "/gpfs/home/jkopp/apps/paraview/4.4.0/bin/pvbatch"
-    USE_MUMPS = false
+    USE_MUMPS = true
     WITH_PBS =  true
   else
     GMSH_EXE =        "gmsh"
     ELMERGRID_EXE =   "ElmerGrid"
     ELMERSOLVER_EXE = "ElmerSolver"
+    MPI_EXE =         "mpirun"
     PARAVIEW_EXE =    "pvbatch"
     USE_MUMPS = false
     WITH_PBS =  false
@@ -1101,6 +1102,7 @@ class Beam < ActiveRecord::Base
           f.puts "#PBS -N #{prefix}"
           f.puts "#PBS -l nodes=1:ppn=#{cores}"
           f.puts "#PBS -j oe"
+          f.puts "module load openmpi/gcc/64/1.10.1"
           f.puts "module load elmer"
           f.puts "cd $PBS_O_WORKDIR"
         else
@@ -1110,7 +1112,7 @@ class Beam < ActiveRecord::Base
         f.puts "#{GMSH_EXE} #{geom_file} -3"
         f.puts "#{ELMERGRID_EXE} 14 2 #{mesh_file} " +
           ("-metis #{cores} 0 " * use_mpi?.to_i) + "-autoclean"
-        f.puts "#{`which mpirun`.strip} -np #{cores} " * use_mpi?.to_i +
+        f.puts "#{MPI_EXE} -np #{cores} " * use_mpi?.to_i +
           "#{ELMERSOLVER_EXE} #{input_deck.to_s * (1 - use_mpi?.to_i)}".strip
         f.puts "#{`which ruby`.strip} #{parse_script}"
 
