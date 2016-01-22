@@ -24,15 +24,15 @@
           <tbody>
             <tr>
               <%= render 'field', form: f, object: :length, text: nil,
-              constant: DIMENSIONAL_UNITS, style: "default" %>
+                constant: DIMENSIONAL_UNITS, style: "default" %>
             </tr>
             <tr>
               <%= render 'field', form: f, object: :width, text: nil, constant:
-              DIMENSIONAL_UNITS, style: "default" %>
+                DIMENSIONAL_UNITS, style: "default" %>
             </tr>
             <tr>
               <%= render 'field', form: f, object: :height, text: nil,
-              constant: DIMENSIONAL_UNITS, style: "default" %>
+                constant: DIMENSIONAL_UNITS, style: "default" %>
             </tr>
           </tbody>
         </table>
@@ -45,19 +45,19 @@
           <tbody>
             <tr>
               <%= render 'field', form: f, object: :load, text: nil, constant:
-              FORCE_UNITS, style: "default" %>
+                FORCE_UNITS, style: "default" %>
             </tr>
             <tr>
               <%= render 'field', form: f, object: :meshsize, text:
-              "Global Mesh Size", constant: DIMENSIONAL_UNITS, style:
-              "default" %>
+                "Global Mesh Size", constant: DIMENSIONAL_UNITS, style:
+                "default" %>
             </tr>
             <tr>
               <td>Number of Cores</td>
               <td>
                 <%= f.select :cores,
-                (1..16).map { |i| [i.to_s, i] }, {},
-                { class: "form-control blue-select" } %>
+                  (1..16).map { |i| [i.to_s, i] }, {},
+                  { class: "form-control blue-select" } %>
               </td>
               <td></td>
             </tr>
@@ -73,13 +73,19 @@
         <table class="table">
           <tbody>
             <tr>
-              <td>Material Name</td>
+              <td>Material</td>
               <td>
-                <%= f.collection_select :material_id,
-                Material.all, :id, :name, {},
-                { class: "form-control blue-select" } %>
+                <%= f.collection_select :material_id, Material.all,
+                  :id, :name, {}, { class: "form-control blue-select" } %>
               </td>
             </tr>
+            <tr>
+            <tr>
+              <th>Elastic Modulus (<%= unit_text(@beam.material, :modulus) %>)</th>
+              <th>Poisson's Ratio</th>
+              <th>Density (<%= unit_text(@beam.material, :density) %>)</th>
+            </tr>
+            <tr><%= render 'material' %></tr>
           </tbody>
         </table>
       </div>
@@ -93,8 +99,8 @@
               <td>Result Unit System</td>
               <td>
                 <%= f.select :result_unit_system,
-                RESULT_UNITS.map { |k,v| [v[:text], k.to_s] }, {},
-                { class: "form-control blue-select" } %>
+                  RESULT_UNITS.map { |k,v| [v[:text], k.to_s] }, {},
+                  { class: "form-control blue-select" } %>
               </td>
             </tr>
           </tbody>
