@@ -949,7 +949,7 @@ class Beam < ActiveRecord::Base
     # is completed.
     # Displacement - The first entry in the dat file is maximum y displacement,
     # the second is minimum.  Return the greater of the two absolute values.
-    # Stress - Stresses are extracted at 3 element lengths from the wall to
+    # Stress - Stresses are extracted at half the length from the wall to
     # avoid singularities near the boundary condition.  This probed stress is
     # then linearly interpolated to the wall to determine peak stress.
     def generate_parse_script
@@ -964,7 +964,13 @@ class Beam < ActiveRecord::Base
       h = convert(:height)
       targetx = w / 2
       targety = h
-      targetz = 3 * convert(:meshsize)
+      targetz = l / 2
+
+      # Stresses cannot be linearly interpolated since moment due to a
+      # distributed load is proportional to distance squared.  Therefore, the
+      # stress multiplier at the beam midpoint uses a load proportion as
+      # follows:
+      alpha = weight == 0 ? nil : convert(:load) / weight
 
       File.open(parse_script, 'w') do |f|
         f.puts "#!#{`which ruby`}"
@@ -1016,8 +1022,13 @@ class Beam < ActiveRecord::Base
         f.puts "    stressloc = startparseloc + nodeloc + 1"
         f.puts "    result_file = File.open result_file_name"
         f.puts "    stressloc.times { result_file.gets }"
-        f.puts "    factor = #{l} * #{h} / ((#{l} - z) * (2 * y - #{h}))"
-        f.puts "    stress = $_.strip.to_f * factor"
+        if alpha.nil?
+          f.puts "    factor = z != #{l} ? #{l} / (#{l} - z) : nil"
+        else
+          f.puts "    factor = (2.0 * #{alpha} + 1.0) / ((z / #{l}) * " \
+            "(2.0 * #{alpha} + (z / #{l})))"
+        end
+        f.puts "    stress = factor.nil? ? nil : $_.strip.to_f * factor"
         f.puts "    result_file.close"
         f.puts "  end"
         f.puts "end"
