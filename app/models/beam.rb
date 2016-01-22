@@ -858,7 +858,7 @@ class Beam < ActiveRecord::Base
           "#{plane_scale * view_scale}, 1.0]"
         f.puts "plane1Display.Position = " \
           "[#{(1 - plane_scale) * w * view_scale / 2}, " \
-          "#{(1 - plane_scale) * h * view_scale / 2}, #{-0.001 * view_scale}]"
+          "#{(1 - plane_scale) * h * view_scale / 2}, 0.0]"
         f.puts "plane1Display.DiffuseColor = [0.35, 0.35, 0.35]"
 
         # Create an arrow to represent the load visually.
@@ -964,7 +964,7 @@ class Beam < ActiveRecord::Base
       h = convert(:height)
       targetx = w / 2
       targety = h
-      targetz = l * convert(:meshsize) * 3
+      targetz = 3 * convert(:meshsize)
 
       File.open(parse_script, 'w') do |f|
         f.puts "#!#{`which ruby`}"
