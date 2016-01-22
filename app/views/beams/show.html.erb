@@ -74,7 +74,7 @@
         </thead>
         <tbody>
           <tr>
-            <td><%= @beam.material %></td>
+            <td><%= Beam::MATERIALS[@beam.material.to_sym][:text] %></td>
             <td><%= @beam.modulus %></td>
             <td><%= @beam.poisson %></td>
             <td><%= @beam.density %></td>

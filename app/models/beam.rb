@@ -175,6 +175,20 @@ class Beam < ActiveRecord::Base
                     moment_reaction:  TORQUE_UNITS[:ftlb],
                     text:             "Imperial (ksi)" }
   }
+  MATERIALS = {
+    steel: { modulus: 200.0,
+             poisson: 0.29,
+             density: 7600,
+             text:    "Structural Steel" },
+    aluminum: { modulus: 69.0,
+                poisson: 0.33,
+                density: 2700,
+                text:    "Aluminum Alloy" },
+    user_defined: { modulus: :modulus,
+                    poisson: :poisson,
+                    density: :density,
+                    text:    "User Defined" }
+  }
 
   validates_inclusion_of :length_unit,   in: DIMENSIONAL_UNITS.keys.map(&:to_s)
   validates_inclusion_of :width_unit,    in: DIMENSIONAL_UNITS.keys.map(&:to_s)

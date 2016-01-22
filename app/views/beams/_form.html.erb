@@ -77,11 +77,13 @@
               <td><%= f.text_field :material, class: 'form-control' %></td>
               <td></td>
             </tr>
+            <div id="modulus">
             <tr>
               <%= render 'field', form: f, object: :modulus, text:
               "Elastic Modulus", constant: Beam::STRESS_UNITS, style:
               "default" %>
             </tr>
+            </div>
             <tr>
               <td>Poisson's Ratio</td>
               <td><%= f.text_field :poisson, class: 'form-control' %></td>
@@ -101,7 +103,10 @@
         <table class="table">
           <tbody>
             <tr>
-              <td>Result Unit System</td>
+              <!-- <td>Result Unit System</td> -->
+              <td>
+                <div id="sys"><%= @beam.result_unit_system %></div>
+              </td>
               <td>
                 <%= f.select :result_unit_system,
                 Beam::RESULT_UNITS.map { |k,v| [v[:text], k.to_s] }, {},
@@ -115,3 +120,16 @@
     </div>
   </div>
 <% end %>
+<script>
+  $(document).ready(function() {
+    $('#beam_result_unit_system').change(function() {
+        $.ajax({
+           url: "<%= submit_units_path %>",
+           data: {
+               unit_name: $("#beam_result_unit_system option:selected").text()
+           },
+           dataType: "script"
+        });
+    });
+  });
+</script>

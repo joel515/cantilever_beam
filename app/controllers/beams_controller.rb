@@ -133,6 +133,14 @@ class BeamsController < ApplicationController
     end
   end
 
+  def submit_units
+    @unit_text = params[:unit_name]
+  end
+
+  def select_material
+    @material = params[:material]
+  end
+
   private
 
     def beam_params
