@@ -42,14 +42,14 @@ module BeamsHelper
     "<span class=\"label #{label_class}\">#{text}</span>".html_safe
   end
 
-  def number_with_units(beam, param, **opts)
+  def number_with_units(object, param, **opts)
     precision = opts[:precision].nil? ? 4 : opts[:precision]
     is_result = opts[:is_result].nil? ? false : true
     if is_result
-      number = beam.unconvert(param)
+      number = unconvert(object, param)
       significant = true
     else
-      number = beam.send(param.to_s)
+      number = object.send(param.to_s)
       significant = false
     end
 
@@ -57,7 +57,7 @@ module BeamsHelper
                                   precision: precision,
                                   significant: significant,
                                   strip_insignificant_zeros: true)
-    unit = beam.unit_text(param, is_result)
+    unit = unit_text(object, param, is_result)
 
     "#{value} #{unit}".html_safe
   end

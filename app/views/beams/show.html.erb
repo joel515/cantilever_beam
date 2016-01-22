@@ -31,7 +31,7 @@
         <tbody>
           <tr>
             <td>Unit System:</td>
-            <td><%= Beam::RESULT_UNITS[@beam.result_unit_system.to_sym][:text] %></td>
+            <td><%= RESULT_UNITS[@beam.result_unit_system.to_sym][:text] %></td>
           </tr>
         </tbody>
       </table>
@@ -45,8 +45,8 @@
       <table class="table">
         <thead>
           <tr>
-            <th>Load (<%= @beam.unit_text(:load) %>)</th>
-            <th>Global Mesh Size (<%= @beam.unit_text(:meshsize) %>)</th>
+            <th>Load (<%= unit_text(@beam, :load) %>)</th>
+            <th>Global Mesh Size (<%= unit_text(@beam, :meshsize) %>)</th>
             <th>Number of Cores</th>
           </tr>
         </thead>
@@ -67,17 +67,17 @@
         <thead>
           <tr>
             <th>Name</th>
-            <th>Elastic Modulus (<%= @beam.unit_text(:modulus) %>)</th>
+            <th>Elastic Modulus (<%= unit_text(@beam.material, :modulus) %>)</th>
             <th>Poisson's Ratio</th>
-            <th>Density (<%= @beam.unit_text(:density) %>)</th>
+            <th>Density (<%= unit_text(@beam.material, :density) %>)</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td><%= Beam::MATERIALS[@beam.material.to_sym][:text] %></td>
-            <td><%= @beam.modulus %></td>
-            <td><%= @beam.poisson %></td>
-            <td><%= @beam.density %></td>
+            <td><%= @beam.material.name %></td>
+            <td><%= @beam.material.modulus %></td>
+            <td><%= @beam.material.poisson %></td>
+            <td><%= @beam.material.density %></td>
           </tr>
         </tbody>
       </table>

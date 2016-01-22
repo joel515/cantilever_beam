@@ -31,7 +31,7 @@
           </div>
         <% end %>
       </td>
-      <td><%= beam.material %></td>
+      <td><%= beam.material.name %></td>
       <td><%= number_with_units(beam, :load) %></td>
       <td><%= number_with_units(beam, :meshsize) %></td>
       <td><%= button_group(beam) %></td>

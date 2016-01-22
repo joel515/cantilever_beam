@@ -18,19 +18,19 @@
       </tr>
       <tr>
         <td>Material</td>
-        <td><%= @beam.material %></td>
+        <td><%= @beam.material.name %></td>
       </tr>
       <tr>
         <td>&nbsp;&nbsp;&bull; Modulus of Elasticity</td>
-        <td><%= number_with_units(@beam, :modulus) %></td>
+        <td><%= number_with_units(@beam.material, :modulus) %></td>
       </tr>
       <tr>
         <td>&nbsp;&nbsp;&bull; Poisson's Ratio</td>
-        <td><%= @beam.poisson %></td>
+        <td><%= @beam.material.poisson %></td>
       </tr>
       <tr>
         <td>&nbsp;&nbsp;&bull; Density</td>
-        <td><%= number_with_units(@beam, :density) %></td>
+        <td><%= number_with_units(@beam.material, :density) %></td>
       </tr>
       <tr>
         <td>End Load</td>

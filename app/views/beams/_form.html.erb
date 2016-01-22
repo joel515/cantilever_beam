@@ -24,15 +24,15 @@
           <tbody>
             <tr>
               <%= render 'field', form: f, object: :length, text: nil,
-              constant: Beam::DIMENSIONAL_UNITS, style: "default" %>
+              constant: DIMENSIONAL_UNITS, style: "default" %>
             </tr>
             <tr>
               <%= render 'field', form: f, object: :width, text: nil, constant:
-              Beam::DIMENSIONAL_UNITS, style: "default" %>
+              DIMENSIONAL_UNITS, style: "default" %>
             </tr>
             <tr>
               <%= render 'field', form: f, object: :height, text: nil,
-              constant: Beam::DIMENSIONAL_UNITS, style: "default" %>
+              constant: DIMENSIONAL_UNITS, style: "default" %>
             </tr>
           </tbody>
         </table>
@@ -45,11 +45,11 @@
           <tbody>
             <tr>
               <%= render 'field', form: f, object: :load, text: nil, constant:
-              Beam::FORCE_UNITS, style: "default" %>
+              FORCE_UNITS, style: "default" %>
             </tr>
             <tr>
               <%= render 'field', form: f, object: :meshsize, text:
-              "Global Mesh Size", constant: Beam::DIMENSIONAL_UNITS, style:
+              "Global Mesh Size", constant: DIMENSIONAL_UNITS, style:
               "default" %>
             </tr>
             <tr>
@@ -74,24 +74,11 @@
           <tbody>
             <tr>
               <td>Material Name</td>
-              <td><%= f.text_field :material, class: 'form-control' %></td>
-              <td></td>
-            </tr>
-            <div id="modulus">
-            <tr>
-              <%= render 'field', form: f, object: :modulus, text:
-              "Elastic Modulus", constant: Beam::STRESS_UNITS, style:
-              "default" %>
-            </tr>
-            </div>
-            <tr>
-              <td>Poisson's Ratio</td>
-              <td><%= f.text_field :poisson, class: 'form-control' %></td>
-              <td></td>
-            </tr>
-            <tr>
-              <%= render 'field', form: f, object: :density, text: nil,
-              constant: Beam::DENSITY_UNITS, style: "density" %>
+              <td>
+                <%= f.collection_select :material_id,
+                Material.all, :id, :name, {},
+                { class: "form-control blue-select" } %>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -103,13 +90,10 @@
         <table class="table">
           <tbody>
             <tr>
-              <!-- <td>Result Unit System</td> -->
-              <td>
-                <div id="sys"><%= @beam.result_unit_system %></div>
-              </td>
+              <td>Result Unit System</td>
               <td>
                 <%= f.select :result_unit_system,
-                Beam::RESULT_UNITS.map { |k,v| [v[:text], k.to_s] }, {},
+                RESULT_UNITS.map { |k,v| [v[:text], k.to_s] }, {},
                 { class: "form-control blue-select" } %>
               </td>
             </tr>
@@ -120,16 +104,3 @@
     </div>
   </div>
 <% end %>
-<script>
-  $(document).ready(function() {
-    $('#beam_result_unit_system').change(function() {
-        $.ajax({
-           url: "<%= submit_units_path %>",
-           data: {
-               unit_name: $("#beam_result_unit_system option:selected").text()
-           },
-           dataType: "script"
-        });
-    });
-  });
-</script>

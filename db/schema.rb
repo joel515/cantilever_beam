@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20160113232410) do
+ActiveRecord::Schema.define(version: 20160122203801) do
 
   create_table "beams", force: :cascade do |t|
     t.string   "name"
@@ -19,10 +19,6 @@ ActiveRecord::Schema.define(version: 20160113232410) do
     t.float    "width"
     t.float    "height"
     t.float    "meshsize"
-    t.float    "modulus"
-    t.float    "poisson"
-    t.float    "density"
-    t.string   "material"
     t.datetime "created_at",                                 null: false
     t.datetime "updated_at",                                 null: false
     t.float    "load"
@@ -32,14 +28,26 @@ ActiveRecord::Schema.define(version: 20160113232410) do
     t.string   "width_unit",         default: "m"
     t.string   "height_unit",        default: "m"
     t.string   "meshsize_unit",      default: "m"
-    t.string   "modulus_unit",       default: "gpa"
-    t.string   "density_unit",       default: "kgm3"
     t.string   "load_unit",          default: "n"
     t.string   "result_unit_system", default: "metric_mpa"
     t.string   "jobid"
     t.integer  "cores",              default: 1
+    t.integer  "material_id"
   end
 
+  add_index "beams", ["material_id"], name: "index_beams_on_material_id"
   add_index "beams", ["name"], name: "index_beams_on_name", unique: true
+
+  create_table "materials", force: :cascade do |t|
+    t.string   "name"
+    t.float    "modulus"
+    t.float    "poisson"
+    t.float    "density"
+    t.string   "modulus_unit", default: "gpa"
+    t.string   "density_unit", default: "kgm3"
+    t.datetime "created_at",                    null: false
+    t.datetime "updated_at",                    null: false
+    t.boolean  "deletable",    default: true
+  end
 
 end

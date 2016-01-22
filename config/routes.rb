@@ -5,8 +5,6 @@ Rails.application.routes.draw do
   get 'about'   => 'static_pages#about'
   get 'index'   => 'beams#index'
   get 'create'  => 'beams#new'
-  get "beams/submit_units", as: "submit_units"
-  get "beams/select_material", as: "select_material"
 
   resources :beams do
     member do

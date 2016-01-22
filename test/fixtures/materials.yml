@@ -1,0 +1,17 @@
+# Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  name: MyString
+  modulus: 1.5
+  poisson: 1.5
+  density: 1.5
+  modulus_unit: MyString
+  density_unit: MyString
+
+two:
+  name: MyString
+  modulus: 1.5
+  poisson: 1.5
+  density: 1.5
+  modulus_unit: MyString
+  density_unit: MyString

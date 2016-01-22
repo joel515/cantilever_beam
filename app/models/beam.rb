@@ -1,4 +1,5 @@
 class Beam < ActiveRecord::Base
+  belongs_to :material
   before_destroy :delete_staging_directories
   validates :name,     presence: true, uniqueness: { case_sensitive: false }
   # TODO: Check name with a regex for parentheses.
@@ -6,21 +7,12 @@ class Beam < ActiveRecord::Base
   validates :width,    presence: true, numericality: { greater_than: 0 }
   validates :height,   presence: true, numericality: { greater_than: 0 }
   validates :meshsize, presence: true, numericality: { greater_than: 0 }
-  validates :modulus,  presence: true, numericality: { greater_than: 0 }
-  validates :poisson,  presence: true,
-                       numericality: { greater_than_or_equal_to: -1,
-                                       less_than_or_equal_to: 0.5 }
-  validates :density,  presence: true,
-                       numericality: { greater_than_or_equal_to: 0 }
-  validates :material, presence: true
   validates :load,     presence: true,
                        numericality: { greater_than_or_equal_to: 0 }
   validates :length_unit,        presence: true
   validates :width_unit,         presence: true
   validates :height_unit,        presence: true
   validates :meshsize_unit,      presence: true
-  validates :modulus_unit,       presence: true
-  validates :density_unit,       presence: true
   validates :load_unit,          presence: true
   validates :status,             presence: true
   validates :result_unit_system, presence: true
@@ -28,6 +20,11 @@ class Beam < ActiveRecord::Base
                     numericality: { only_integer: true,
                                     greater_than_or_equal_to: 1,
                                     less_than_or_equal_to: 16 }
+  validates :material, presence: true
+
+  require 'pathname'
+  require 'nokogiri'
+  include UnitsHelper
 
   SERVER = `hostname`.strip.to_sym
   SHOW_UNDEFORMED_MESH = false
@@ -75,132 +72,12 @@ class Beam < ActiveRecord::Base
     k: "Unknown"
   }
 
-  GRAVITY = 9.80665
-
-  DIMENSIONAL_UNITS = {
-    m:  { convert: 1,      text: "m" },
-    mm: { convert: 0.001,  text: "mm" },
-    cm: { convert: 0.01,   text: "cm" },
-    in: { convert: 0.0254, text: "in" },
-    ft: { convert: 0.3048, text: "ft" }
-  }
-  FORCE_UNITS = {
-    n:   { convert: 1,                    text: "N" },
-    kn:  { convert: 1000,                 text: "kN" },
-    kgf: { convert: Beam::GRAVITY,        text: "kgf" },
-    lbf: { convert: 4.448221615255,       text: "lbf" },
-    kip: { convert: 4448.221615255,       text: "kip" }
-  }
-  STRESS_UNITS = {
-    pa:  { convert: 1,              text: "Pa" },
-    kpa: { convert: 1e3,            text: "kPa" },
-    mpa: { convert: 1e6,            text: "MPa" },
-    gpa: { convert: 1e9,            text: "GPa" },
-    psi: { convert: 6894.757293178, text: "psi" },
-    ksi: { convert: 6894757.293178, text: "ksi" }
-  }
-  DENSITY_UNITS = {
-    kgm3:     { convert: 1,            text: "kg/m&sup3;".html_safe },
-    tonnemm3: { convert: 1e12,         text: "tonne/mm&sup3;".html_safe },
-    gcm3:     { convert: 1000,         text: "gm/cm&sup3;".html_safe },
-    gm3:      { convert: 0.001,        text: "gm/m&sup3;".html_safe },
-    lbin3:    { convert: 27679.90471019, text: "lb/in&sup3;".html_safe },
-    lbft3:    { convert: 16.01846337395, text: "lb/ft&sup3;".html_safe }
-  }
-  INERTIA_UNITS = {
-    m4:  { convert: 1,         text: "m<sup>4</sup>".html_safe },
-    mm4: { convert: 0.001**4,  text: "mm<sup>4</sup>".html_safe },
-    in4: { convert: 0.0254**4, text: "in<sup>4</sup>".html_safe }
-  }
-  MASS_UNITS = {
-    kg:  { convert: 1,           text: "kg" },
-    lbm: { convert: 1 / 2.20462, text: "lbm" }
-  }
-  TORQUE_UNITS = {
-    nm:   { convert: 1,                       text: "N-m" },
-    nmm:  { convert: 0.001,                   text: "N-mm" },
-    inlb: { convert: 4.448221615255 * 0.0254, text: "in-lbf" },
-    ftlb: { convert: 4.448221615255 * 0.3048, text: "ft-lbf" }
-  }
-  UNIT_DESIGNATION = {
-    name:     nil,
-    length:   DIMENSIONAL_UNITS,
-    width:    DIMENSIONAL_UNITS,
-    height:   DIMENSIONAL_UNITS,
-    meshsize: DIMENSIONAL_UNITS,
-    modulus:  STRESS_UNITS,
-    poisson:  nil,
-    density:  DENSITY_UNITS,
-    material: nil,
-    load:     FORCE_UNITS,
-    inertia:  INERTIA_UNITS,
-    mass:     MASS_UNITS,
-    torque:   TORQUE_UNITS
-  }
-  RESULT_UNITS = {
-    metric_mpa:   { displacement:     DIMENSIONAL_UNITS[:mm],
-                    displacement_fem: DIMENSIONAL_UNITS[:mm],
-                    stress:           STRESS_UNITS[:mpa],
-                    stress_fem:       STRESS_UNITS[:mpa],
-                    force_reaction:   FORCE_UNITS[:n],
-                    inertia:          INERTIA_UNITS[:mm4],
-                    mass:             MASS_UNITS[:kg],
-                    moment_reaction:  TORQUE_UNITS[:nmm],
-                    text:             "Metric (MPa)" },
-    metric_pa:    { displacement:     DIMENSIONAL_UNITS[:m],
-                    displacement_fem: DIMENSIONAL_UNITS[:m],
-                    stress:           STRESS_UNITS[:pa],
-                    stress_fem:       STRESS_UNITS[:pa],
-                    force_reaction:   FORCE_UNITS[:n],
-                    inertia:          INERTIA_UNITS[:m4],
-                    mass:             MASS_UNITS[:kg],
-                    moment_reaction:  TORQUE_UNITS[:nm],
-                    text:             "Metric (Pa)" },
-    imperial_psi: { displacement:     DIMENSIONAL_UNITS[:in],
-                    displacement_fem: DIMENSIONAL_UNITS[:in],
-                    stress:           STRESS_UNITS[:psi],
-                    stress_fem:       STRESS_UNITS[:psi],
-                    force_reaction:   FORCE_UNITS[:lbf],
-                    inertia:          INERTIA_UNITS[:in4],
-                    mass:             MASS_UNITS[:lbm],
-                    moment_reaction:  TORQUE_UNITS[:inlb],
-                    text:             "Imperial (psi)" },
-    imperial_ksi: { displacement:     DIMENSIONAL_UNITS[:in],
-                    displacement_fem: DIMENSIONAL_UNITS[:in],
-                    stress:           STRESS_UNITS[:ksi],
-                    stress_fem:       STRESS_UNITS[:ksi],
-                    force_reaction:   FORCE_UNITS[:kip],
-                    inertia:          INERTIA_UNITS[:in4],
-                    mass:             MASS_UNITS[:lbm],
-                    moment_reaction:  TORQUE_UNITS[:ftlb],
-                    text:             "Imperial (ksi)" }
-  }
-  MATERIALS = {
-    steel: { modulus: 200.0,
-             poisson: 0.29,
-             density: 7600,
-             text:    "Structural Steel" },
-    aluminum: { modulus: 69.0,
-                poisson: 0.33,
-                density: 2700,
-                text:    "Aluminum Alloy" },
-    user_defined: { modulus: :modulus,
-                    poisson: :poisson,
-                    density: :density,
-                    text:    "User Defined" }
-  }
-
   validates_inclusion_of :length_unit,   in: DIMENSIONAL_UNITS.keys.map(&:to_s)
   validates_inclusion_of :width_unit,    in: DIMENSIONAL_UNITS.keys.map(&:to_s)
   validates_inclusion_of :height_unit,   in: DIMENSIONAL_UNITS.keys.map(&:to_s)
   validates_inclusion_of :meshsize_unit, in: DIMENSIONAL_UNITS.keys.map(&:to_s)
-  validates_inclusion_of :modulus_unit,  in: STRESS_UNITS.keys.map(&:to_s)
-  validates_inclusion_of :density_unit,  in: DENSITY_UNITS.keys.map(&:to_s)
   validates_inclusion_of :load_unit,     in: FORCE_UNITS.keys.map(&:to_s)
   validates_inclusion_of :status,        in: JOB_STATUS.values
-
-  require 'pathname'
-  require 'nokogiri'
 
   # Job status queries.
   def running?
@@ -337,15 +214,6 @@ class Beam < ActiveRecord::Base
     end
   end
 
-  def unit_text(param, result_units = false)
-    if result_units == false
-      UNIT_DESIGNATION[param][self.send(param.to_s<<"_unit").to_sym][:text] unless
-        UNIT_DESIGNATION[param].nil?
-    else
-      RESULT_UNITS[result_unit_system.to_sym][param][:text]
-    end
-  end
-
   def stress_units
     RESULT_UNITS[result_unit_system.to_sym][:stress]
   end
@@ -354,30 +222,19 @@ class Beam < ActiveRecord::Base
     RESULT_UNITS[result_unit_system.to_sym][:displacement]
   end
 
-  def convert(param)
-    self.send(param.to_s) * \
-      UNIT_DESIGNATION[param][self.send(param.to_s<<"_unit").to_sym][:convert] \
-      unless UNIT_DESIGNATION[param].nil?
-  end
-
-  def unconvert(param)
-    self.send(param.to_s) / \
-      RESULT_UNITS[result_unit_system.to_sym][param][:convert]
-  end
-
   # Calculate the beam's bending moment of inertia.
   def inertia
-    convert(:width) * convert(:height)**3 / 12
+    convert(self, :width) * convert(self, :height)**3 / 12
   end
 
   # Calculate the beam's cross-sectional area.
   def area
-    convert(:width) * convert(:height)
+    convert(self, :width) * convert(self, :height)
   end
 
   # Calculate the beam's mass.
   def mass
-    convert(:length) * area * convert(:density)
+    convert(self, :length) * area * convert(material, :density)
   end
 
   # Calculate the beam's weight.
@@ -387,23 +244,23 @@ class Beam < ActiveRecord::Base
 
   # Calculate the beam's flexural stiffness.
   def stiffness
-    convert(:modulus) * inertia
+    convert(material, :modulus) * inertia
   end
 
   # Calculate the total force reaction due to load and gravity.
   def force_reaction
-    convert(:load) + weight
+    convert(self, :load) + weight
   end
 
   # Calculate the total moment reaction due to load and gravity.
   def moment_reaction
-    -convert(:load) * convert(:length) + -weight * convert(:length) / 2
+    -convert(self, :load) * convert(self, :length) + -weight * convert(self, :length) / 2
   end
 
   # Calculate the beam end angle due to load and gravity.
   def theta
-    p = convert(:load)
-    l = convert(:length)
+    p = convert(self, :load)
+    l = convert(self, :length)
     ei = stiffness
     w = weight
 
@@ -415,14 +272,14 @@ class Beam < ActiveRecord::Base
   # Calculate the shear modulus of the material based on the elastic modulus
   # and Poisson's ratio.
   def shear_modulus
-    convert(:modulus) / (2 * (1 + poisson))
+    convert(material, :modulus) / (2 * (1 + material.poisson))
   end
 
   # Calculate to total displacement due to load and gravity using Timoshenko
   # theory.
   def displacement
-    p = convert(:load)
-    l = convert(:length)
+    p = convert(self, :load)
+    l = convert(self, :length)
     ei = stiffness
     a = area
     w = weight
@@ -436,7 +293,7 @@ class Beam < ActiveRecord::Base
 
   # Calculate the maximum pricipal stress.
   def stress
-    moment_reaction.abs * convert(:height) / (2 * inertia)
+    moment_reaction.abs * convert(self, :height) / (2 * inertia)
   end
 
   # Capture the FEA stats and return the data as a hash.
@@ -543,10 +400,10 @@ class Beam < ActiveRecord::Base
     def generate_geometry_file
       geom_file = Pathname.new(jobdir) + "#{prefix}.geo"
 
-      l = convert(:length)
-      w = convert(:width)
-      h = convert(:height)
-      ms = convert(:meshsize)
+      l = convert(self, :length)
+      w = convert(self, :width)
+      h = convert(self, :height)
+      ms = convert(self, :meshsize)
 
       numels_l = (l / ms).to_i
       if numels_l.odd?
@@ -594,11 +451,11 @@ class Beam < ActiveRecord::Base
       result_file = "#{prefix}.vtu"
       output_file = "#{prefix}.result"
 
-      w = convert(:width)
-      h = convert(:height)
-      e = convert(:modulus)
-      rho = convert(:density)
-      p = convert(:load)
+      w = convert(self, :width)
+      h = convert(self, :height)
+      e = convert(material, :modulus)
+      rho = convert(material, :density)
+      p = convert(self, :load)
 
       # Generate the Elmer input deck.
       File.open(input_deck, 'w') do |f|
@@ -624,7 +481,7 @@ class Beam < ActiveRecord::Base
         f.puts "End"
         f.puts ""
         f.puts "Constants"
-        f.puts "  Gravity(4) = 0 -1 0 #{Beam::GRAVITY}"
+        f.puts "  Gravity(4) = 0 -1 0 #{GRAVITY}"
         f.puts "  Stefan Boltzmann = 5.67e-08"
         f.puts "  Permittivity of Vacuum = 8.8542e-12"
         f.puts "  Boltzmann Constant = 1.3807e-23"
@@ -678,15 +535,15 @@ class Beam < ActiveRecord::Base
         f.puts "End"
         f.puts ""
         f.puts "Material 1"
-        f.puts "  Name = \"#{material}\""
+        f.puts "  Name = \"#{material.name}\""
         f.puts "  Youngs modulus = #{e}"
         f.puts "  Density = #{rho}"
-        f.puts "  Poisson ratio = #{poisson}"
+        f.puts "  Poisson ratio = #{material.poisson}"
         f.puts "End"
         f.puts ""
         f.puts "Body Force 1"
         f.puts "  Name = \"Gravity\""
-        f.puts "  Stress Bodyforce 2 = $ -#{Beam::GRAVITY} * #{rho}"
+        f.puts "  Stress Bodyforce 2 = $ -#{GRAVITY} * #{rho}"
         f.puts "End"
         f.puts ""
         f.puts "Boundary Condition 1"
@@ -725,9 +582,9 @@ class Beam < ActiveRecord::Base
       webgl_displ_file = results_dir + "#{prefix}_displ.webgl"
 
       displ_conversion, displ_units =
-        Beam::RESULT_UNITS[result_unit_system.to_sym][:displacement].values
+        RESULT_UNITS[result_unit_system.to_sym][:displacement].values
       stress_conversion, stress_units =
-        Beam::RESULT_UNITS[result_unit_system.to_sym][:stress].values
+        RESULT_UNITS[result_unit_system.to_sym][:stress].values
 
       # TODO: Add error checking for displacement and stress values.
       displ_max = displacement / displ_conversion
@@ -740,9 +597,9 @@ class Beam < ActiveRecord::Base
 
       stress_max = stress / stress_conversion
 
-      l = convert(:length)
-      w = convert(:width)
-      h = convert(:height)
+      l = convert(self, :length)
+      w = convert(self, :width)
+      h = convert(self, :height)
 
       # This is a hack.  Need to scale everything for very small dimensions.
       # When exporting a WebGL file in Paraview the z buffer becomes small when
@@ -973,9 +830,9 @@ class Beam < ActiveRecord::Base
       stress_file = jobpath + "#{prefix}.stress"
       displacement_file = jobpath + "#{prefix}.displacement"
       debug_file = jobpath + "#{prefix}.debug" if Rails.env.development?
-      l = convert(:length)
-      w = convert(:width)
-      h = convert(:height)
+      l = convert(self, :length)
+      w = convert(self, :width)
+      h = convert(self, :height)
       targetx = w / 2
       targety = h
       targetz = l / 2
@@ -984,7 +841,7 @@ class Beam < ActiveRecord::Base
       # distributed load is proportional to distance squared.  Therefore, the
       # stress multiplier at the beam midpoint uses a load proportion as
       # follows:
-      alpha = weight == 0 ? nil : convert(:load) / weight
+      alpha = weight == 0 ? nil : convert(self, :load) / weight
 
       File.open(parse_script, 'w') do |f|
         f.puts "#!#{`which ruby`}"
