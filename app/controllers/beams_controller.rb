@@ -133,6 +133,10 @@ class BeamsController < ApplicationController
     end
   end
 
+  def update_material
+    @material_id = params[:material_id].to_i
+  end
+
   private
 
     def beam_params

@@ -5,6 +5,7 @@ Rails.application.routes.draw do
   get 'about'   => 'static_pages#about'
   get 'index'   => 'beams#index'
   get 'create'  => 'beams#new'
+  get 'beams/update_material', as: 'update_material'
 
   resources :beams do
     member do

@@ -80,12 +80,27 @@
               </td>
             </tr>
             <tr>
-            <tr>
               <th>Elastic Modulus (<%= unit_text(@beam.material, :modulus) %>)</th>
               <th>Poisson's Ratio</th>
               <th>Density (<%= unit_text(@beam.material, :density) %>)</th>
             </tr>
-            <tr><%= render 'material' %></tr>
+            <tr>
+              <td>
+                <div id="modulus">
+                  <%= @beam.material.modulus %>
+                </div>
+              </td>
+              <td>
+                <div id="poisson">
+                  <%= @beam.material.poisson %>
+                </div>
+              </td>
+              <td>
+                <div id="density">
+                  <%= @beam.material.density %>
+                </div>
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -110,3 +125,16 @@
     </div>
   </div>
 <% end %>
+<script>
+  $(document).ready(function() {
+    $('#beam_material_id').change(function() {
+      $.ajax({
+        url: "<%= update_material_path %>",
+        data: {
+          material_id: $("#beam_material_id option:selected").val()
+        },
+        dataType: "script"
+      });
+    });
+  });
+</script>
