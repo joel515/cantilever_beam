@@ -12,8 +12,11 @@ class BeamsController < ApplicationController
     end
   end
 
+  # TODO: Materials should be initially seeded.  However, there should be an
+  # error check if materials don't exist.
   def new
     @beam = Beam.new
+    @beam.material = Material.find(1)
   end
 
   def show
