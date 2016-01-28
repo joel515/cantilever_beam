@@ -12,11 +12,15 @@ class BeamsController < ApplicationController
     end
   end
 
-  # TODO: Materials should be initially seeded.  However, there should be an
-  # error check if materials don't exist.
   def new
-    @beam = Beam.new
-    @beam.material = Material.find(1)
+    params = Material.count > 0 ?
+      { beam: { material_id: 1 } } :
+      { beam: { material_attributes: { name: "Structural Steel",
+                                       modulus: 200.0,
+                                       poisson: 0.3,
+                                       density: 7850.0 },
+                material_id: 1 } }
+    @beam = Beam.new(params[:beam])
   end
 
   def show

@@ -75,8 +75,14 @@
             <tr>
               <td>Material</td>
               <td>
-                <%= f.collection_select :material_id, Material.all,
-                  :id, :name, {}, { class: "form-control blue-select" } %>
+                <% if Material.count > 0 %>
+                  <%= f.collection_select :material_id, Material.all,
+                    :id, :name, {}, { class: "form-control blue-select" } %>
+                <% else %>
+                  <%= f.select :material_id, [[@beam.material.name,
+                    @beam.material.id]],{},
+                    { class: "form-control blue-select" } %>
+                <% end %>
               </td>
             </tr>
             <tr>

@@ -1,5 +1,6 @@
 class Beam < ActiveRecord::Base
   belongs_to :material
+  accepts_nested_attributes_for :material
   before_destroy :delete_staging_directories
   validates :name,     presence: true, uniqueness: { case_sensitive: false }
   # TODO: Check name with a regex for parentheses.
