@@ -1,0 +1,17 @@
+# Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  pid: MyString
+  jobdir: MyString
+  status: MyString
+  config: MyString
+  cores: 1
+  machines: 1
+
+two:
+  pid: MyString
+  jobdir: MyString
+  status: MyString
+  config: MyString
+  cores: 1
+  machines: 1

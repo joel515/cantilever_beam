@@ -14,11 +14,17 @@ class BeamsController < ApplicationController
 
   def new
     params = Material.count > 0 ?
-      { beam: { material_id: 1 } } :
-      { beam: { material_attributes: { name: "Structural Steel",
+      { beam: { material_id: 1,
+                job_attributes: { config:   "elmer",
+                                  cores:    1,
+                                  machines: 1 } } } :
+      { beam: { material_attributes: { name:    "Structural Steel",
                                        modulus: 200.0,
                                        poisson: 0.3,
                                        density: 7850.0 },
+                job_attributes: { config:   "elmer",
+                                  cores:    1,
+                                  machines: 1 },
                 material_id: 1 } }
     @beam = Beam.new(params[:beam])
   end
@@ -39,21 +45,6 @@ class BeamsController < ApplicationController
       redirect_to @beam
     else
       render 'new'
-    end
-  end
-
-  def submit
-    @beam.submit if @beam.ready?
-    if @beam.submitted?
-      flash[:success] = "Simulation for #{@beam.name} successfully submitted!"
-    else
-      flash[:danger] = "Submission for #{@beam.name} failed."
-    end
-
-    if request.referrer.include? index_path
-      redirect_to request.referrer
-    else
-      redirect_to @beam
     end
   end
 
@@ -125,21 +116,6 @@ class BeamsController < ApplicationController
     render layout: false, file: @beam.graphics_file(@result.to_sym)
   end
 
-  def kill
-    if @beam.terminatable?
-      @beam.kill
-      flash[:success] = "Terminating job for #{@beam.name}."
-    else
-      flash[:danger] = "Job for #{@beam.name} is not running."
-    end
-
-    if request.referrer.include? index_path
-      redirect_to request.referrer
-    else
-      redirect_to @beam
-    end
-  end
-
   def update_material
     @material_id = params[:material_id].to_i
   end
@@ -150,7 +126,8 @@ class BeamsController < ApplicationController
       params.require(:beam).permit(:name, :length, :width, :height, :meshsize,
                                    :load, :length_unit, :width_unit, :material_id,
                                    :height_unit, :meshsize_unit, :load_unit,
-                                   :result_unit_system, :cores)
+                                   :result_unit_system, job: [:cores,
+                                   :machines, :config] )
     end
 
     def set_beam
