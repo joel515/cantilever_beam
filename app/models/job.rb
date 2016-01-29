@@ -203,11 +203,6 @@ class Job < ActiveRecord::Base
     end
   end
 
-  def debug_info
-    debug_file = Pathname.new(jobdir) + "#{prefix}.debug"
-    debug_file.exist? ? File.open(debug_file, 'r').read : nil
-  end
-
     private
 
     def use_mpi?

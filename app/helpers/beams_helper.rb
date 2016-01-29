@@ -1,23 +1,4 @@
-class FalseClass
-  def to_i
-    0
-  end
-end
-
-class TrueClass
-  def to_i
-    1
-  end
-end
-
 module BeamsHelper
-  def pluralize_without_count(count, noun, text = nil)
-    count == 1 ? "#{noun}#{text}" : "#{noun.pluralize}#{text}"
-  end
-
-  def unpluralize_without_count(count, noun, text = nil)
-    count == 1 ? "#{noun.pluralize}#{text}" : "#{noun}#{text}"
-  end
 
   def number_with_units(object, param, **opts)
     precision = opts[:precision].nil? ? 4 : opts[:precision]
