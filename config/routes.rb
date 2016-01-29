@@ -13,11 +13,16 @@ Rails.application.routes.draw do
 
   resources :beams do
     member do
-      put 'submit'
       put 'copy'
       put 'clean'
       get 'results'
       get 'embed'
+    end
+  end
+
+  resources :jobs do
+    member do
+      put 'submit'
       put 'kill'
     end
   end

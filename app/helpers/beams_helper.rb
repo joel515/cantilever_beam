@@ -19,29 +19,6 @@ module BeamsHelper
     count == 1 ? "#{noun.pluralize}#{text}" : "#{noun}#{text}"
   end
 
-  def status_label(beam, **opts)
-    label_class = "label-default"
-
-    if beam
-      status = beam.check_status
-      beam.set_status! status if status != beam.status
-
-      if beam.completed?
-        label_class = "label-success"
-      elsif beam.failed?
-        label_class = "label-danger"
-      elsif beam.running?
-        label_class = "label-primary"
-      elsif beam.active?
-        label_class = "label-info"
-      end
-    end
-
-    text = opts[:text].nil? ? status : "#{opts[:text]} - #{status}"
-
-    "<span class=\"label #{label_class}\">#{text}</span>".html_safe
-  end
-
   def number_with_units(object, param, **opts)
     precision = opts[:precision].nil? ? 4 : opts[:precision]
     is_result = opts[:is_result].nil? ? false : true
@@ -68,7 +45,7 @@ module BeamsHelper
     if type == :submit
       link_to "<span class='glyphicon glyphicon-flash'></span> "\
           "#{type.capitalize if opts[:text]}".html_safe,
-        submit_beam_path(beam),
+        submit_job_path(beam.job),
         method: :put,
         class: "btn btn-success #{opts[:size]} " \
           "#{'disabled' * opts[:disabled].to_i}".strip,
@@ -129,7 +106,7 @@ module BeamsHelper
     elsif type == :kill
       link_to "<span class='glyphicon glyphicon-remove'></span> "\
           "#{type.capitalize if opts[:text]}".html_safe,
-        kill_beam_path(beam),
+        kill_job_path(beam.job),
         method: :put,
         class: "btn btn-danger #{opts[:size]} " \
           "#{'disabled' * opts[:disabled].to_i}".strip,
@@ -140,10 +117,10 @@ module BeamsHelper
 
   def button_group(beam, opts = { text: false, size: 'btn-xs'} )
     div = "<div class=\"btn-group\">"
-    if beam.ready?
+    if beam.job.ready?
       div += button(beam, :submit, opts)
     else
-      if beam.active? || beam.running?
+      if beam.job.active? || beam.job.running?
         div += button(beam, :kill,  opts)
         opts[:disabled] = true
       else

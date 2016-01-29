@@ -129,6 +129,17 @@ class Beam < ActiveRecord::Base
     end
   end
 
+  def duplicate
+    duplicate_beam = self.dup
+    duplicate_beam.name = generate_duplicate_name
+    duplicate_beam.job = Job.new
+    duplicate_beam.job.config = job.config
+    duplicate_beam.job.cores = job.cores
+    duplicate_beam.job.machines = job.machines
+    duplicate_beam.ready
+    duplicate_beam
+  end
+
   def delete_staging_directories
     job.delete_staging_directories
   end
@@ -152,4 +163,80 @@ class Beam < ActiveRecord::Base
   def cleanable?
     job.cleanable?
   end
+
+    # Capture the FEA stats and return the data as a hash.
+  def fem_stats
+    jobpath = Pathname.new(job.jobdir)
+    std_out = jobpath + (Job::WITH_PBS ? "#{prefix}.o#{job.pid.split('.')[0]}" :
+      "#{prefix}.out")
+
+    nodes, elements, cputime, walltime = nil
+    if std_out.exist?
+      File.foreach(std_out) do |line|
+        nodes    = line.split[6] if line.include? "Number of nodes"
+        elements = line.split[6] if line.include? "Number of elements"
+        cputime  = "#{line.split[3]} s" if line.include? "SOLVER TOTAL TIME"
+        walltime = "#{line.split[4]} s" if line.include? "SOLVER TOTAL TIME"
+      end
+    end
+    Hash["Number of Nodes" => nodes,
+         "Number of Elements" => elements,
+         "CPU Time" => cputime,
+         "Wall Time" => walltime]
+  end
+
+  def displacement_fem
+    fem_result(:displacement)
+  end
+
+  def stress_fem
+    fem_result(:stress)
+  end
+
+  # Read the result extracted from the parser submitted with the simulation.
+  def fem_result(type)
+    jobpath = Pathname.new(job.jobdir)
+    result_file = jobpath + "#{prefix}.#{type.to_s}"
+
+    result_file.exist? ? File.foreach(result_file).first.strip.to_f : nil
+  end
+
+  # Gets the Paraview generated WebGL file - returns empty string if
+  # nonexistant.
+  def graphics_file(type=:stress)
+    jobpath = Pathname.new(job.jobdir)
+    results_dir = jobpath + jobpath.basename
+    results_file = lambda { |f| f.exist? ? f : "" }
+    if type == :stress
+      results_file.call(results_dir + "#{prefix}_stress.html").to_s
+    elsif type == :displ
+      results_file.call(results_dir + "#{prefix}_displ.html").to_s
+    else
+      return ""
+    end
+  end
+
+  def debug_info
+    debug_file = Pathname.new(job.jobdir) + "#{prefix}.debug"
+    debug_file.exist? ? File.open(debug_file, 'r').read : nil
+  end
+
+  private
+
+    # Generate a new name when copying a beam by adding the suffix "-Copy" and
+    # an iterator if necessary.
+    def generate_duplicate_name
+      suffix = "-Copy"
+      duplicate_name = name
+      duplicate_name += suffix unless name.include? suffix
+      iter = 1
+      while Beam.where("lower(name) =?", duplicate_name.downcase).first
+        duplicate_name.slice!(((0...duplicate_name.length).find_all \
+          { |i| duplicate_name[i, suffix.length] == suffix }.last + \
+          suffix.length)...(duplicate_name.length))
+        duplicate_name += iter.to_s
+        iter += 1
+      end
+      duplicate_name
+    end
 end

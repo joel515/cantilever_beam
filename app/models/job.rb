@@ -194,58 +194,6 @@ class Job < ActiveRecord::Base
     end
   end
 
-  # Capture the FEA stats and return the data as a hash.
-  def fem_stats
-    jobpath = Pathname.new(jobdir)
-    std_out = jobpath + (WITH_PBS ? "#{prefix}.o#{pid.split('.')[0]}" :
-      "#{prefix}.out")
-
-    nodes, elements, cputime, walltime = nil
-    if std_out.exist?
-      File.foreach(std_out) do |line|
-        nodes    = line.split[6] if line.include? "Number of nodes"
-        elements = line.split[6] if line.include? "Number of elements"
-        cputime  = "#{line.split[3]} s" if line.include? "SOLVER TOTAL TIME"
-        walltime = "#{line.split[4]} s" if line.include? "SOLVER TOTAL TIME"
-      end
-    end
-    Hash["Number of Nodes" => nodes,
-         "Number of Elements" => elements,
-         "CPU Time" => cputime,
-         "Wall Time" => walltime]
-  end
-
-  def displacement_fem
-    fem_result(:displacement)
-  end
-
-  def stress_fem
-    fem_result(:stress)
-  end
-
-  # Read the result extracted from the parser submitted with the simulation.
-  def fem_result(type)
-    jobpath = Pathname.new(jobdir)
-    result_file = jobpath + "#{prefix}.#{type.to_s}"
-
-    result_file.exist? ? File.foreach(result_file).first.strip.to_f : nil
-  end
-
-  # Gets the Paraview generated WebGL file - returns empty string if
-  # nonexistant.
-  def graphics_file(type=:stress)
-    jobpath = Pathname.new(jobdir)
-    results_dir = jobpath + jobpath.basename
-    results_file = lambda { |f| f.exist? ? f : "" }
-    if type == :stress
-      results_file.call(results_dir + "#{prefix}_stress.html").to_s
-    elsif type == :displ
-      results_file.call(results_dir + "#{prefix}_displ.html").to_s
-    else
-      return ""
-    end
-  end
-
   def delete_staging_directories
     if !jobdir.nil?
       jobpath = Pathname.new(jobdir)
@@ -287,10 +235,10 @@ class Job < ActiveRecord::Base
     def generate_geometry_file
       geom_file = Pathname.new(jobdir) + "#{prefix}.geo"
 
-      l = convert(self, :length)
-      w = convert(self, :width)
-      h = convert(self, :height)
-      ms = convert(self, :meshsize)
+      l = convert(beam, :length)
+      w = convert(beam, :width)
+      h = convert(beam, :height)
+      ms = convert(beam, :meshsize)
 
       numels_l = (l / ms).to_i
       if numels_l.odd?
@@ -338,11 +286,11 @@ class Job < ActiveRecord::Base
       result_file = "#{prefix}.vtu"
       output_file = "#{prefix}.result"
 
-      w = convert(self, :width)
-      h = convert(self, :height)
-      e = convert(material, :modulus)
-      rho = convert(material, :density)
-      p = convert(self, :load)
+      w = convert(beam, :width)
+      h = convert(beam, :height)
+      e = convert(beam.material, :modulus)
+      rho = convert(beam.material, :density)
+      p = convert(beam, :load)
 
       # Generate the Elmer input deck.
       File.open(input_deck, 'w') do |f|
@@ -422,10 +370,10 @@ class Job < ActiveRecord::Base
         f.puts "End"
         f.puts ""
         f.puts "Material 1"
-        f.puts "  Name = \"#{material.name}\""
+        f.puts "  Name = \"#{beam.material.name}\""
         f.puts "  Youngs modulus = #{e}"
         f.puts "  Density = #{rho}"
-        f.puts "  Poisson ratio = #{material.poisson}"
+        f.puts "  Poisson ratio = #{beam.material.poisson}"
         f.puts "End"
         f.puts ""
         f.puts "Body Force 1"
@@ -469,24 +417,24 @@ class Job < ActiveRecord::Base
       webgl_displ_file = results_dir + "#{prefix}_displ.webgl"
 
       displ_conversion, displ_units =
-        RESULT_UNITS[result_unit_system.to_sym][:displacement].values
+        RESULT_UNITS[beam.result_unit_system.to_sym][:displacement].values
       stress_conversion, stress_units =
-        RESULT_UNITS[result_unit_system.to_sym][:stress].values
+        RESULT_UNITS[beam.result_unit_system.to_sym][:stress].values
 
       # TODO: Add error checking for displacement and stress values.
-      displ_max = displacement / displ_conversion
-      displ_max_abs = displacement.abs
+      displ_max = beam.displacement / displ_conversion
+      displ_max_abs = beam.displacement.abs
       displ_min = 0.0
       if displ_max < 0
         displ_min = displ_max
         displ_max = 0.0
       end
 
-      stress_max = stress / stress_conversion
+      stress_max = beam.stress / stress_conversion
 
-      l = convert(self, :length)
-      w = convert(self, :width)
-      h = convert(self, :height)
+      l = convert(beam, :length)
+      w = convert(beam, :width)
+      h = convert(beam, :height)
 
       # This is a hack.  Need to scale everything for very small dimensions.
       # When exporting a WebGL file in Paraview the z buffer becomes small when
@@ -717,9 +665,9 @@ class Job < ActiveRecord::Base
       stress_file = jobpath + "#{prefix}.stress"
       displacement_file = jobpath + "#{prefix}.displacement"
       debug_file = jobpath + "#{prefix}.debug" if Rails.env.development?
-      l = convert(self, :length)
-      w = convert(self, :width)
-      h = convert(self, :height)
+      l = convert(beam, :length)
+      w = convert(beam, :width)
+      h = convert(beam, :height)
       targetx = w / 2
       targety = h
       targetz = l / 2
@@ -728,7 +676,7 @@ class Job < ActiveRecord::Base
       # distributed load is proportional to distance squared.  Therefore, the
       # stress multiplier at the beam midpoint uses a load proportion as
       # follows:
-      alpha = weight == 0 ? nil : convert(self, :load) / weight
+      alpha = beam.weight == 0 ? nil : convert(beam, :load) / beam.weight
 
       File.open(parse_script, 'w') do |f|
         f.puts "#!#{`which ruby`}"

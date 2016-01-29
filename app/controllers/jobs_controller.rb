@@ -1,4 +1,6 @@
 class JobsController < ApplicationController
+  before_action :set_job
+
   def submit
     @job.submit if @job.ready?
     if @job.submitted?
@@ -28,4 +30,10 @@ class JobsController < ApplicationController
       redirect_to @job.beam
     end
   end
+
+  private
+
+    def set_job
+      @job = Job.find(params[:id])
+    end
 end

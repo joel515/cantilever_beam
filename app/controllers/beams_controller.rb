@@ -1,6 +1,6 @@
 class BeamsController < ApplicationController
-  before_action :set_beam, only: [:show, :submit, :results, :edit, :update,
-    :destroy, :clean, :copy, :embed, :kill]
+  before_action :set_beam, only: [:show, :results, :edit, :update, :destroy,
+    :clean, :copy, :embed]
   before_action :get_displayed_result, only: [:results, :embed]
   before_action :get_last_page, only: [:destroy]
 
@@ -88,14 +88,17 @@ class BeamsController < ApplicationController
   end
 
   def copy
-    duplicate_beam = @beam.dup
-    duplicate_beam.name = generate_duplicate_name(@beam.name)
-    duplicate_beam.ready
-    if request.referrer.include? index_path
-      redirect_to index_path(page:   Beam.page.num_pages,
-                             anchor: duplicate_beam.prefix)
+    duplicate_beam = @beam.duplicate
+    if duplicate_beam.save
+      if request.referrer.include? index_path
+        redirect_to index_path(page:   Beam.page.num_pages,
+                               anchor: duplicate_beam.prefix)
+      else
+        redirect_to duplicate_beam
+      end
     else
-      redirect_to duplicate_beam
+      flash[:danger] = "Unable to copy #{@beam.name}."
+      redirect_to request.referrer
     end
   end
 
@@ -113,7 +116,7 @@ class BeamsController < ApplicationController
       params.require(:beam).permit(:name, :length, :width, :height, :meshsize,
                                    :load, :length_unit, :width_unit, :material_id,
                                    :height_unit, :meshsize_unit, :load_unit,
-                                   :result_unit_system, job: [:cores,
+                                   :result_unit_system, job_attributes: [:cores,
                                    :machines, :config] )
     end
 
@@ -131,22 +134,5 @@ class BeamsController < ApplicationController
     def get_last_page
       query = URI.parse(request.referrer).query
       @last_page = query.nil? ? 0 : CGI.parse(query)["page"].first.to_i
-    end
-
-    # Generate a new name when copying a beam by adding the suffix "-Copy" and
-    # an iterator if necessary.
-    def generate_duplicate_name(original_name)
-      suffix = "-Copy"
-      duplicate_name = original_name
-      duplicate_name += suffix unless original_name.include? suffix
-      iter = 1
-      while Beam.where("lower(name) =?", duplicate_name.downcase).first
-        duplicate_name.slice!((0...duplicate_name.length).find_all \
-          { |i| duplicate_name[i, suffix.length] == suffix }.last + \
-          suffix.length)
-        duplicate_name += iter.to_s
-        iter += 1
-      end
-      duplicate_name
     end
 end

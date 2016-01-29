@@ -55,9 +55,11 @@
             <tr>
               <td>Number of Cores</td>
               <td>
-                <%= f.select :cores,
-                  (1..16).map { |i| [i.to_s, i] }, {},
-                  { class: "form-control blue-select" } %>
+                <%= f.fields_for :job do |ff| %>
+                  <%= ff.select :cores,
+                    (1..16).map { |i| [i.to_s, i] }, {},
+                    { class: "form-control blue-select" } %>
+                <% end %>
               </td>
               <td></td>
             </tr>
@@ -75,8 +77,8 @@
             <tr>
               <td>Material</td>
               <td>
-                  <%= f.collection_select :material_id, Material.all,
-                    :id, :name, {}, { class: "form-control blue-select" } %>
+                <%= f.collection_select :material_id, Material.all,
+                  :id, :name, {}, { class: "form-control blue-select" } %>
               </td>
             </tr>
             <tr>
