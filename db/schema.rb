@@ -11,7 +11,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20160128224112) do
+ActiveRecord::Schema.define(version: 20160129165044) do
 
   create_table "beams", force: :cascade do |t|
     t.string   "name"
@@ -48,14 +48,14 @@ ActiveRecord::Schema.define(version: 20160128224112) do
   end
 
   create_table "materials", force: :cascade do |t|
-    t.string   "name"
-    t.float    "modulus"
-    t.float    "poisson"
-    t.float    "density"
+    t.string   "name",         default: "Structural Steel"
+    t.float    "modulus",      default: 200.0
+    t.float    "poisson",      default: 0.3
+    t.float    "density",      default: 7850.0
     t.string   "modulus_unit", default: "gpa"
     t.string   "density_unit", default: "kgm3"
-    t.datetime "created_at",                    null: false
-    t.datetime "updated_at",                    null: false
+    t.datetime "created_at",                                null: false
+    t.datetime "updated_at",                                null: false
     t.boolean  "deletable",    default: true
   end
 

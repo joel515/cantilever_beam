@@ -1,4 +1,4 @@
-<%= form_for(@beam) do |f| %>
+<%= form_for(setup_beam(@beam)) do |f| %>
   <div class="row">
     <div class="col-md-12">
       <%= render 'shared/error_messages' %>
@@ -75,14 +75,8 @@
             <tr>
               <td>Material</td>
               <td>
-                <% if Material.count > 0 %>
                   <%= f.collection_select :material_id, Material.all,
                     :id, :name, {}, { class: "form-control blue-select" } %>
-                <% else %>
-                  <%= f.select :material_id, [[@beam.material.name,
-                    @beam.material.id]],{},
-                    { class: "form-control blue-select" } %>
-                <% end %>
               </td>
             </tr>
             <tr>
