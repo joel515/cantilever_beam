@@ -3,6 +3,10 @@ class Beam < ActiveRecord::Base
   belongs_to :job, dependent: :destroy
   accepts_nested_attributes_for :material
   accepts_nested_attributes_for :job
+  delegate :running?, :completed?, :active?, :failed?, :ready?, :ready,
+    :submitted?, :terminated?, :destroyable?, :cleanable?, :terminatable?,
+    :editable?, to: :job
+
   validates :name,     presence: true, uniqueness: { case_sensitive: false }
   # TODO: Check name with a regex for parentheses.
   validates :length,   presence: true, numericality: { greater_than: 0 }
@@ -20,6 +24,7 @@ class Beam < ActiveRecord::Base
   validates :material,           presence: true
 
   include UnitsHelper
+  include Results
 
   validates_inclusion_of :length_unit,   in: DIMENSIONAL_UNITS.keys.map(&:to_s)
   validates_inclusion_of :width_unit,    in: DIMENSIONAL_UNITS.keys.map(&:to_s)
@@ -138,87 +143,6 @@ class Beam < ActiveRecord::Base
     duplicate_beam.job.machines = job.machines
     duplicate_beam.ready
     duplicate_beam
-  end
-
-  def delete_staging_directories
-    job.delete_staging_directories
-  end
-
-  def ready
-    job.ready
-  end
-
-  def ready?
-    job.ready?
-  end
-
-  def editable?
-    job.editable?
-  end
-
-  def destroyable?
-    job.destroyable?
-  end
-
-  def cleanable?
-    job.cleanable?
-  end
-
-    # Capture the FEA stats and return the data as a hash.
-  def fem_stats
-    jobpath = Pathname.new(job.jobdir)
-    std_out = jobpath + (Job::WITH_PBS ? "#{prefix}.o#{job.pid.split('.')[0]}" :
-      "#{prefix}.out")
-
-    nodes, elements, cputime, walltime = nil
-    if std_out.exist?
-      File.foreach(std_out) do |line|
-        nodes    = line.split[6] if line.include? "Number of nodes"
-        elements = line.split[6] if line.include? "Number of elements"
-        cputime  = "#{line.split[3]} s" if line.include? "SOLVER TOTAL TIME"
-        walltime = "#{line.split[4]} s" if line.include? "SOLVER TOTAL TIME"
-      end
-    end
-    Hash["Number of Nodes" => nodes,
-         "Number of Elements" => elements,
-         "CPU Time" => cputime,
-         "Wall Time" => walltime]
-  end
-
-  def displacement_fem
-    fem_result(:displacement)
-  end
-
-  def stress_fem
-    fem_result(:stress)
-  end
-
-  # Read the result extracted from the parser submitted with the simulation.
-  def fem_result(type)
-    jobpath = Pathname.new(job.jobdir)
-    result_file = jobpath + "#{prefix}.#{type.to_s}"
-
-    result_file.exist? ? File.foreach(result_file).first.strip.to_f : nil
-  end
-
-  # Gets the Paraview generated WebGL file - returns empty string if
-  # nonexistant.
-  def graphics_file(type=:stress)
-    jobpath = Pathname.new(job.jobdir)
-    results_dir = jobpath + jobpath.basename
-    results_file = lambda { |f| f.exist? ? f : "" }
-    if type == :stress
-      results_file.call(results_dir + "#{prefix}_stress.html").to_s
-    elsif type == :displ
-      results_file.call(results_dir + "#{prefix}_displ.html").to_s
-    else
-      return ""
-    end
-  end
-
-  def debug_info
-    debug_file = Pathname.new(job.jobdir) + "#{prefix}.debug"
-    debug_file.exist? ? File.open(debug_file, 'r').read : nil
   end
 
   private

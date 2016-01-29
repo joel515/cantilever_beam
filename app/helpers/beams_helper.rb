@@ -98,10 +98,10 @@ module BeamsHelper
 
   def button_group(beam, opts = { text: false, size: 'btn-xs'} )
     div = "<div class=\"btn-group\">"
-    if beam.job.ready?
+    if beam.ready?
       div += button(beam, :submit, opts)
     else
-      if beam.job.active? || beam.job.running?
+      if beam.active? || beam.running?
         div += button(beam, :kill,  opts)
         opts[:disabled] = true
       else

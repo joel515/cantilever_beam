@@ -4,7 +4,7 @@
   </div>
   <table class="table">
     <tbody>
-      <% @beam.fem_stats.each do |key,value| %>
+      <% @beam.job.job_stats.each do |key,value| %>
         <tr>
           <td><%= key %></td>
           <% if value.nil? %>

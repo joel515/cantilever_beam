@@ -38,7 +38,7 @@ class BeamsController < ApplicationController
   def update
     if @beam.editable?
       if @beam.update_attributes(beam_params)
-        @beam.delete_staging_directories
+        @beam.job.delete_staging_directories
         @beam.ready
         flash[:success] = "Successully updated #{@beam.name}."
         redirect_to @beam
@@ -53,7 +53,7 @@ class BeamsController < ApplicationController
 
   def destroy
     if @beam.destroyable?
-      @beam.delete_staging_directories
+      @beam.job.delete_staging_directories
       @beam.destroy
       flash[:success] = "Beam deleted."
     else
@@ -73,7 +73,7 @@ class BeamsController < ApplicationController
 
   def clean
     if @beam.cleanable?
-      @beam.delete_staging_directories
+      @beam.job.delete_staging_directories
       @beam.ready
       flash[:success] = "Job directory successfully deleted."
     else
@@ -117,7 +117,7 @@ class BeamsController < ApplicationController
                                    :load, :length_unit, :width_unit, :material_id,
                                    :height_unit, :meshsize_unit, :load_unit,
                                    :result_unit_system, job_attributes: [:cores,
-                                   :machines, :config] )
+                                   :machines, :config, :id] )
     end
 
     def set_beam
