@@ -62,6 +62,8 @@ class Job < ActiveRecord::Base
     k: "Unknown"
   }
 
+  validates_inclusion_of :status, in: JOB_STATUS.values
+
   # Job status queries.
   def running?
     [JOB_STATUS[:r]].include? status
@@ -85,7 +87,7 @@ class Job < ActiveRecord::Base
   end
 
   def ready
-    self.jobid = nil
+    self.pid = nil
     self.jobdir = nil
     set_status! :u
   end
@@ -114,13 +116,8 @@ class Job < ActiveRecord::Base
     !active? & !running?
   end
 
-  # Formulate a file/directory prefix using the beam's name by removing all
-  # spaces and converting to lower case.
-  # TODO: Maybe add ID to prefix?  Can then strip name of characters that aren't
-  # allowed in GMSH and Elmer, and still ensure some type of uniqueness.
   def prefix
-    name.gsub(/\s+/, "").downcase
-    # name.gsub(/\W/, "").downcase
+    beam.prefix
   end
 
   # Submit the job.  Use qsub if using PBS scheduler.  Otherwise run the bash
@@ -144,17 +141,17 @@ class Job < ActiveRecord::Base
         Dir.chdir(jobdir) {
           cmd =  "#{WITH_PBS ? 'qsub' : 'bash'} #{prefix}.sh"
           cmd += " > #{prefix}.out 2>&1 &" unless WITH_PBS
-          self.jobid = WITH_PBS ? `#{cmd}` : Process.spawn(cmd, pgroup: true)
+          self.pid = WITH_PBS ? `#{cmd}` : Process.spawn(cmd, pgroup: true)
         }
       end
     end
 
     # If successful, set the status to "Submitted" and save to database.
-    unless jobid.nil? || jobid.empty?
-      self.jobid = jobid.strip
+    unless pid.nil? || pid.empty?
+      self.pid = pid.strip
       set_status! :b
     else
-      self.jobid = nil
+      self.pid = nil
       set_status! :f
     end
   end
@@ -162,7 +159,7 @@ class Job < ActiveRecord::Base
   # Check the job's status.  Use qstat if submitted via PBS, otherwise check
   # the child PIDs from the submitted group PID.
   def check_status
-    return status if jobid.nil?
+    return status if pid.nil?
 
     pre_status = `#{check_status_command}`
     unless pre_status.nil? || pre_status.empty?
@@ -191,8 +188,8 @@ class Job < ActiveRecord::Base
   # Kill the job.  If running with scheduler, submit qdel command.  Otherwise,
   # submit a SIGTERM to the process group.
   def kill
-    unless jobid.nil?
-      WITH_PBS ? `qdel #{jobid}` : Process.kill("TERM", -jobid.to_i)
+    unless pid.nil?
+      WITH_PBS ? `qdel #{pid}` : Process.kill("TERM", -pid.to_i)
       set_status! :m
     end
   end
@@ -200,7 +197,7 @@ class Job < ActiveRecord::Base
   # Capture the FEA stats and return the data as a hash.
   def fem_stats
     jobpath = Pathname.new(jobdir)
-    std_out = jobpath + (WITH_PBS ? "#{prefix}.o#{jobid.split('.')[0]}" :
+    std_out = jobpath + (WITH_PBS ? "#{prefix}.o#{pid.split('.')[0]}" :
       "#{prefix}.out")
 
     nodes, elements, cputime, walltime = nil
@@ -914,14 +911,14 @@ class Job < ActiveRecord::Base
     end
 
     def check_status_command
-      WITH_PBS ? "qstat #{jobid} -x" : "pgrep -g #{jobid}"
+      WITH_PBS ? "qstat #{pid} -x" : "pgrep -g #{pid}"
     end
 
     def check_completed_status
       jobpath = Pathname.new(jobdir)
       result_file = jobpath + jobpath.basename +
         (use_mpi? ? "#{prefix}0001.pvtu" : "#{prefix}0001.vtu")
-      std_out = jobpath + (WITH_PBS ? "#{prefix}.o#{jobid.split('.')[0]}" :
+      std_out = jobpath + (WITH_PBS ? "#{prefix}.o#{pid.split('.')[0]}" :
         "#{prefix}.out")
 
       if std_out.exist?

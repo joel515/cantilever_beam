@@ -23,9 +23,9 @@
     <tr>
       <td><%= beam.id %></td>
       <td><%= link_to beam.name, beam, name: beam.prefix %></td>
-      <td><%= status_label(beam) %></td>
+      <td><%= status_label(beam.job) %></td>
       <td>
-        <% if beam.completed? %>
+        <% if beam.job.completed? %>
           <div class="btn-group">
            <%= button(beam, :results, text: false, size: 'btn-xs') %>
           </div>

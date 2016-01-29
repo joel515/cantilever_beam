@@ -26,7 +26,15 @@ class Beam < ActiveRecord::Base
   validates_inclusion_of :height_unit,   in: DIMENSIONAL_UNITS.keys.map(&:to_s)
   validates_inclusion_of :meshsize_unit, in: DIMENSIONAL_UNITS.keys.map(&:to_s)
   validates_inclusion_of :load_unit,     in: FORCE_UNITS.keys.map(&:to_s)
-  validates_inclusion_of :status,        in: JOB_STATUS.values
+
+  # Formulate a file/directory prefix using the beam's name by removing all
+  # spaces and converting to lower case.
+  # TODO: Maybe add ID to prefix?  Can then strip name of characters that aren't
+  # allowed in GMSH and Elmer, and still ensure some type of uniqueness.
+  def prefix
+    name.gsub(/\s+/, "").downcase
+    # name.gsub(/\W/, "").downcase
+  end
 
   def stress_units
     RESULT_UNITS[result_unit_system.to_sym][:stress]
@@ -127,6 +135,10 @@ class Beam < ActiveRecord::Base
 
   def ready
     job.ready
+  end
+
+  def ready?
+    job.ready?
   end
 
   def editable?

@@ -83,7 +83,8 @@ steel.beams.create!(name: "Units Test",
                     height_unit: "ft",
                     meshsize_unit: "cm",
                     load_unit: "kgf",
-                    result_unit_system: "imperial_ksi")
+                    result_unit_system: "imperial_ksi",
+                    job_attributes: {})
 
 steel.beams.create!(name: "Long Beam",
                     length: 1.0,
@@ -96,7 +97,8 @@ steel.beams.create!(name: "Long Beam",
                     height_unit: "mm",
                     meshsize_unit: "mm",
                     load_unit: "n",
-                    result_unit_system: "metric_mpa")
+                    result_unit_system: "metric_mpa",
+                    job_attributes: {})
 
 steel.beams.create!(name: "Stubby Beam",
                     length: 30.0,
@@ -109,7 +111,8 @@ steel.beams.create!(name: "Stubby Beam",
                     height_unit: "mm",
                     meshsize_unit: "mm",
                     load_unit: "n",
-                    result_unit_system: "metric_mpa")
+                    result_unit_system: "metric_mpa",
+                    job_attributes: {})
 
 mesharray.each do |n|
   name = "Steel Beam #{n}mm"
@@ -119,7 +122,8 @@ mesharray.each do |n|
                       width:  0.1,
                       height: 0.05,
                       meshsize: meshsize,
-                      load: 2000)
+                      load: 2000,
+                      job_attributes: {})
 end
 
 mesharray.each do |n|
@@ -130,7 +134,8 @@ mesharray.each do |n|
                          width:  0.1,
                          height: 0.05,
                          meshsize: meshsize,
-                         load: 2000)
+                         load: 2000,
+                         job_attributes: {})
 end
 
 mesharray.each do |n|
@@ -141,7 +146,8 @@ mesharray.each do |n|
                      width:  0.1,
                      height: 0.05,
                      meshsize: meshsize,
-                     load: 2000)
+                     load: 2000,
+                     job_attributes: {})
 end
 
 99.times do |n|
@@ -151,5 +157,6 @@ end
                       width:  0.1,
                       height: 0.05,
                       meshsize: 0.01,
-                      load: 2000)
+                      load: 2000,
+                      job_attributes: {})
 end
