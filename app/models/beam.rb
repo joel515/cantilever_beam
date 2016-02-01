@@ -46,7 +46,7 @@ class Beam < ActiveRecord::Base
   end
 
   def displ_units
-    RESULT_UNITS[result_unit_system.to_sym][:displacement]
+    RESULT_UNITS[result_unit_system.to_sym][:displ]
   end
 
   # Calculate the beam's bending moment of inertia.
@@ -104,7 +104,7 @@ class Beam < ActiveRecord::Base
 
   # Calculate to total displacement due to load and gravity using Timoshenko
   # theory.
-  def displacement
+  def displ
     p = convert(self, :load)
     l = convert(self, :length)
     ei = stiffness

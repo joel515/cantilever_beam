@@ -34,13 +34,16 @@ class Job < ActiveRecord::Base
 
   validates_inclusion_of :status, in: JOB_STATUS.values
 
-  # case @config
-  # when "elmer"
-    include ElmerJob
-  # else
-  #   include ElmerJob
-  # end
-
+  def configure_concern
+    case config
+    when "elmer"
+      extend ElmerJob
+    when "ansys"
+      extend AnsysJob
+    else
+      extend ElmerJob
+    end
+  end
 
   # Job status queries.
   def running?
@@ -101,37 +104,8 @@ class Job < ActiveRecord::Base
   # Submit the job.  Use qsub if using PBS scheduler.  Otherwise run the bash
   # script.  If the latter, capture the group id from the process spawned.
   def submit
-    self.jobdir = create_staging_directories
-    geom_file = generate_geometry_file
-    input_deck = generate_input_deck
-    results_script = generate_results_script
-    parse_script = generate_parse_script
-    generate_start_file(input_deck: input_deck) if use_mpi?
-
-    if !geom_file.nil? && !input_deck.nil? && !results_script.nil? \
-      && !parse_script.nil?
-      submit_script = generate_submit_script(geom_file:      geom_file,
-                                             input_deck:     input_deck,
-                                             results_script: results_script,
-                                             parse_script:   parse_script)
-
-      if !submit_script.nil?
-        Dir.chdir(jobdir) {
-          cmd =  "#{WITH_PBS ? 'qsub' : 'bash'} #{prefix}.sh"
-          cmd += " > #{prefix}.out 2>&1 &" unless WITH_PBS
-          self.pid = WITH_PBS ? `#{cmd}` : Process.spawn(cmd, pgroup: true)
-        }
-      end
-    end
-
-    # If successful, set the status to "Submitted" and save to database.
-    unless pid.nil? || pid.empty?
-      self.pid = pid.strip
-      set_status! :b
-    else
-      self.pid = nil
-      set_status! :f
-    end
+    configure_concern
+    submit_job
   end
 
   # Check the job's status.  Use qstat if submitted via PBS, otherwise check
@@ -181,26 +155,15 @@ class Job < ActiveRecord::Base
     end
   end
 
+  def stats
+    configure_concern
+    job_stats
+  end
+
   private
 
     def use_mpi?
       cores > 1
-    end
-
-    # Create the following directories as job staging in the user's home.
-    # $HOME/Scratch/<beam name>
-    # TODO: Add error checking if directories cannot be created.
-    def create_staging_directories
-      homedir = Pathname.new(Dir.home())
-      return nil unless homedir.directory?
-
-      scratchdir = homedir + "Scratch"
-      Dir.mkdir(scratchdir) unless scratchdir.directory?
-      stagedir = scratchdir + prefix
-      Dir.mkdir(stagedir) unless stagedir.directory?
-      resultdir = stagedir + prefix
-      Dir.mkdir(resultdir) unless resultdir.directory?
-      stagedir.to_s
     end
 
     def check_process_status(pre_status)
@@ -225,15 +188,16 @@ class Job < ActiveRecord::Base
     end
 
     def check_completed_status
+      configure_concern
       jobpath = Pathname.new(jobdir)
-      result_file = jobpath + jobpath.basename +
-        (use_mpi? ? "#{prefix}0001.pvtu" : "#{prefix}0001.vtu")
+      stress_file = result_path + "#{prefix}_stress.html"
+      displ_file = result_path + "#{prefix}_displ.html"
       std_out = jobpath + (WITH_PBS ? "#{prefix}.o#{pid.split('.')[0]}" :
         "#{prefix}.out")
 
-      if std_out.exist?
-        if File.foreach(std_out).enum_for(:grep, /error|fail/i).first.nil?
-          result_file.exist? ? JOB_STATUS[:c] : JOB_STATUS[:f]
+      if std_out.exist? && displ_file.exist? && stress_file.exist?
+        if output_ok? std_out
+            JOB_STATUS[:c]
         else
           JOB_STATUS[:f]
         end

@@ -1,8 +1,8 @@
 module Results
   extend ActiveSupport::Concern
 
-  def displacement_fem
-    fem_result(:displacement)
+  def displ_fem
+    fem_result(:displ)
   end
 
   def stress_fem
@@ -19,9 +19,12 @@ module Results
 
   # Gets the Paraview generated WebGL file - returns empty string if
   # nonexistant.
+  # TODO: Remove reference to job configuration below:
   def graphics_file(type=:stress)
     jobpath = Pathname.new(job.jobdir)
-    results_dir = jobpath + jobpath.basename
+    # results_dir = jobpath + (jobpath.basename.to_s * (job.config == "elmer").to_i)
+    job.configure_concern
+    results_dir = job.result_path
     results_file = lambda { |f| f.exist? ? f : "" }
     if type == :stress
       results_file.call(results_dir + "#{prefix}_stress.html").to_s

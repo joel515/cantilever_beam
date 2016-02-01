@@ -1,3 +1,14 @@
+  SERVER = `hostname`.strip.to_sym
+
+  case SERVER
+  when :khaleesi
+    WITH_PBS =  false
+  when :login
+    WITH_PBS =  true
+  else
+    WITH_PBS =  false
+  end
+
   GRAVITY = 9.80665
 
   DIMENSIONAL_UNITS = {
@@ -61,8 +72,8 @@
     torque:   TORQUE_UNITS
   }
   RESULT_UNITS = {
-    metric_mpa:   { displacement:     DIMENSIONAL_UNITS[:mm],
-                    displacement_fem: DIMENSIONAL_UNITS[:mm],
+    metric_mpa:   { displ:            DIMENSIONAL_UNITS[:mm],
+                    displ_fem:        DIMENSIONAL_UNITS[:mm],
                     stress:           STRESS_UNITS[:mpa],
                     stress_fem:       STRESS_UNITS[:mpa],
                     force_reaction:   FORCE_UNITS[:n],
@@ -70,8 +81,8 @@
                     mass:             MASS_UNITS[:kg],
                     moment_reaction:  TORQUE_UNITS[:nmm],
                     text:             "Metric (MPa)" },
-    metric_pa:    { displacement:     DIMENSIONAL_UNITS[:m],
-                    displacement_fem: DIMENSIONAL_UNITS[:m],
+    metric_pa:    { displ:            DIMENSIONAL_UNITS[:m],
+                    displ_fem:        DIMENSIONAL_UNITS[:m],
                     stress:           STRESS_UNITS[:pa],
                     stress_fem:       STRESS_UNITS[:pa],
                     force_reaction:   FORCE_UNITS[:n],
@@ -79,8 +90,8 @@
                     mass:             MASS_UNITS[:kg],
                     moment_reaction:  TORQUE_UNITS[:nm],
                     text:             "Metric (Pa)" },
-    imperial_psi: { displacement:     DIMENSIONAL_UNITS[:in],
-                    displacement_fem: DIMENSIONAL_UNITS[:in],
+    imperial_psi: { displ:            DIMENSIONAL_UNITS[:in],
+                    displ_fem:        DIMENSIONAL_UNITS[:in],
                     stress:           STRESS_UNITS[:psi],
                     stress_fem:       STRESS_UNITS[:psi],
                     force_reaction:   FORCE_UNITS[:lbf],
@@ -88,8 +99,8 @@
                     mass:             MASS_UNITS[:lbm],
                     moment_reaction:  TORQUE_UNITS[:inlb],
                     text:             "Imperial (psi)" },
-    imperial_ksi: { displacement:     DIMENSIONAL_UNITS[:in],
-                    displacement_fem: DIMENSIONAL_UNITS[:in],
+    imperial_ksi: { displ:            DIMENSIONAL_UNITS[:in],
+                    displ_fem:        DIMENSIONAL_UNITS[:in],
                     stress:           STRESS_UNITS[:ksi],
                     stress_fem:       STRESS_UNITS[:ksi],
                     force_reaction:   FORCE_UNITS[:kip],

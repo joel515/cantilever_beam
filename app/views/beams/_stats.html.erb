@@ -4,7 +4,11 @@
   </div>
   <table class="table">
     <tbody>
-      <% @beam.job.job_stats.each do |key,value| %>
+      <tr>
+        <td>Solver</td>
+        <td><%= @beam.job.config.capitalize %></td>
+      </tr>
+      <% @beam.job.stats.each do |key,value| %>
         <tr>
           <td><%= key %></td>
           <% if value.nil? %>

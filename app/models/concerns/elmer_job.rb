@@ -1,7 +1,6 @@
 module ElmerJob
   extend ActiveSupport::Concern
 
-  SERVER = `hostname`.strip.to_sym
   SHOW_UNDEFORMED_MESH = false
 
   case SERVER
@@ -12,7 +11,6 @@ module ElmerJob
     PARAVIEW_EXE =    "/apps/paraview/bin/pvbatch"
     MPI_EXE =         "/usr/bin/mpirun"
     USE_MUMPS = true
-    WITH_PBS =  false
   when :login
     GMSH_EXE =        "/gpfs/apps/gmsh/gmsh-2.8.5-Linux/bin/gmsh"
     ELMERGRID_EXE =   "ElmerGrid"
@@ -20,7 +18,6 @@ module ElmerJob
     MPI_EXE =         "mpirun"
     PARAVIEW_EXE =    "/gpfs/home/jkopp/apps/paraview/4.4.0/bin/pvbatch"
     USE_MUMPS = true
-    WITH_PBS =  true
   else
     GMSH_EXE =        "gmsh"
     ELMERGRID_EXE =   "ElmerGrid"
@@ -28,7 +25,6 @@ module ElmerJob
     MPI_EXE =         "mpirun"
     PARAVIEW_EXE =    "pvbatch"
     USE_MUMPS = false
-    WITH_PBS =  false
   end
 
   # Capture the job stats and return the data as a hash.
@@ -52,7 +48,64 @@ module ElmerJob
          "Wall Time" => walltime]
   end
 
+  def result_path
+    jobpath = Pathname.new(jobdir)
+    jobpath + jobpath.basename
+  end
+
   private
+
+    # Create the following directories as job staging in the user's home.
+    # $HOME/Scratch/<beam name>
+    # TODO: Add error checking if directories cannot be created.
+    def create_staging_directories
+      homedir = Pathname.new(Dir.home())
+      return nil unless homedir.directory?
+
+      scratchdir = homedir + "Scratch"
+      Dir.mkdir(scratchdir) unless scratchdir.directory?
+      stagedir = scratchdir + prefix
+      Dir.mkdir(stagedir) unless stagedir.directory?
+      resultdir = stagedir + prefix
+      Dir.mkdir(resultdir) unless resultdir.directory?
+      stagedir.to_s
+    end
+
+    # Submit the job.  Use qsub if using PBS scheduler.  Otherwise run the bash
+    # script.  If the latter, capture the group id from the process spawned.
+    def submit_job
+      self.jobdir = create_staging_directories
+      geom_file = generate_geometry_file
+      input_deck = generate_input_deck
+      results_script = generate_results_script
+      parse_script = generate_parse_script
+      generate_start_file(input_deck: input_deck) if use_mpi?
+
+      if !geom_file.nil? && !input_deck.nil? && !results_script.nil? \
+        && !parse_script.nil?
+        submit_script = generate_submit_script(geom_file:      geom_file,
+                                               input_deck:     input_deck,
+                                               results_script: results_script,
+                                               parse_script:   parse_script)
+
+        if !submit_script.nil?
+          Dir.chdir(jobdir) {
+            cmd =  "#{WITH_PBS ? 'qsub' : 'bash'} #{prefix}.sh"
+            cmd += " > #{prefix}.out 2>&1 &" unless WITH_PBS
+            self.pid = WITH_PBS ? `#{cmd}` : Process.spawn(cmd, pgroup: true)
+          }
+        end
+      end
+
+      # If successful, set the status to "Submitted" and save to database.
+      unless pid.nil? || pid.empty?
+        self.pid = pid.strip
+        set_status! :b
+      else
+        self.pid = nil
+        set_status! :f
+      end
+    end
 
     # Write the file used to generate and mesh geometry.  This particular app
     # uses open source GMSH.
@@ -241,13 +294,13 @@ module ElmerJob
       webgl_displ_file = results_dir + "#{prefix}_displ.webgl"
 
       displ_conversion, displ_units =
-        RESULT_UNITS[beam.result_unit_system.to_sym][:displacement].values
+        RESULT_UNITS[beam.result_unit_system.to_sym][:displ].values
       stress_conversion, stress_units =
         RESULT_UNITS[beam.result_unit_system.to_sym][:stress].values
 
       # TODO: Add error checking for displacement and stress values.
-      displ_max = beam.displacement / displ_conversion
-      displ_max_abs = beam.displacement.abs
+      displ_max = beam.displ / displ_conversion
+      displ_max_abs = beam.displ.abs
       displ_min = 0.0
       if displ_max < 0
         displ_min = displ_max
@@ -487,7 +540,7 @@ module ElmerJob
       parse_script = jobpath + "#{prefix}.rb"
       result_file = jobpath + jobpath.basename + "#{prefix}.result"
       stress_file = jobpath + "#{prefix}.stress"
-      displacement_file = jobpath + "#{prefix}.displacement"
+      displ_file = jobpath + "#{prefix}.displ"
       debug_file = jobpath + "#{prefix}.debug" if Rails.env.development?
       l = convert(beam, :length)
       w = convert(beam, :width)
@@ -586,7 +639,7 @@ module ElmerJob
         f.puts "  end"
         f.puts "end"
         f.puts ""
-        f.puts "File.open(\"#{displacement_file}\", 'w') { |f|"
+        f.puts "File.open(\"#{displ_file}\", 'w') { |f|"
         f.puts "  f.puts displacement"
         f.puts "} if !displacement.nil?"
 
@@ -663,5 +716,9 @@ module ElmerJob
       end
 
       submit_script.exist? ? submit_script : nil
+    end
+
+    def output_ok?(std_out)
+      File.foreach(std_out).enum_for(:grep, /error|fail/i).first.nil?
     end
 end
