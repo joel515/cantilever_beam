@@ -8,6 +8,14 @@
         <td>Solver</td>
         <td><%= @beam.job.config.capitalize %></td>
       </tr>
+      <tr>
+        <td>Requested Nodes</td>
+        <td><%= @beam.job.machines %></td>
+      </tr>
+      <tr>
+        <td>Requested CPUs/Node</td>
+        <td><%= @beam.job.cores %></td>
+      </tr>
       <% @beam.job.stats.each do |key,value| %>
         <tr>
           <td><%= key %></td>

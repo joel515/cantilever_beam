@@ -117,6 +117,10 @@ footer {
   @include box_sizing;
 }
 
+img.theory {
+  margin-left: 30px;
+}
+
 /* forms */
 
 input, textarea, select, .uneditable-input {

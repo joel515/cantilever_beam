@@ -3,10 +3,21 @@
   case SERVER
   when :khaleesi
     WITH_PBS =  false
+    SOLVERS = {
+      elmer: "Elmer"
+    }
   when :login
     WITH_PBS =  true
+    SOLVERS = {
+      elmer: "Elmer",
+      ansys: "Ansys"
+    }
   else
     WITH_PBS =  false
+    SOLVERS = {
+      elmer: "Elmer",
+      ansys: "Ansys"
+    }
   end
 
   GRAVITY = 9.80665

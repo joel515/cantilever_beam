@@ -415,16 +415,18 @@ module AnsysJob
       output_file = "#{prefix}.o"
       results_script = Pathname.new(args[:results_script]).basename
       submit_script = jobpath + "#{prefix}.sh"
+      shell_cmd = `which bash`.strip
       File.open(submit_script, 'w') do |f|
-        f.puts "#!#{`which bash`.strip}"
+        f.puts "#!#{shell_cmd}"
 
         if WITH_PBS
+          f.puts "#PBS -S #{shell_cmd}"
           f.puts "#PBS -N #{prefix}"
-          f.puts "#PBS -l nodes=1:ppn=#{cores}"
+          f.puts "#PBS -l nodes=#{machines}:ppn=#{cores}"
           f.puts "#PBS -j oe"
           f.puts "machines=`uniq -c ${PBS_NODEFILE} | " \
             "awk '{print $2 \":\" $1}' | paste -s -d ':'`"
-          f.puts "cd $PBS_O_WORKDIR"
+          f.puts "cd ${PBS_O_WORKDIR}"
           f.puts "#{ANSYS_EXE} -b -dis -machines $machines -O " \
             "$1 -I #{input_deck}"
         else

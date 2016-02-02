@@ -18,9 +18,18 @@
 </p>
 <p>
   Results will be presented quantitatively and as a percent error from
-  hand-calculated values. Additionally, results are displaced graphically in
-  WebGL format via Paraview as contours of axial stress and vertical
-  displacement.
+  hand-calculated values. Hand-calculated values are derived using Timoshenko
+  beam theory to account for shear deformation.
+</p>
+<p>
+  <%= link_to 'https://en.wikipedia.org/wiki/Timoshenko_beam_theory' do %>
+    <%= image_tag "timoshenko.png", { alt: "Timoshenko Beam Theory",
+                                      class: 'theory' } %>
+  <% end %>
+</p>
+<p>
+  Additionally, results are displaced graphically in WebGL format via Paraview
+  as contours of axial stress and vertical displacement.
 </p>
 <p>
   Requirements:

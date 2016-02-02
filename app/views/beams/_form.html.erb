@@ -44,16 +44,29 @@
         <table class="table">
           <tbody>
             <tr>
-              <%= render 'field', form: f, object: :load, text: nil, constant:
-                FORCE_UNITS, style: "default" %>
+              <td>Solver</td>
+              <td>
+                <%= f.fields_for :job do |ff| %>
+                  <%= ff.select :config,
+                    SOLVERS.map { |k,v| [v, k.to_s] }, {},
+                    { class: "form-control blue-select" } %>
+                <% end %>
+              </td>
+              <td></td>
             </tr>
             <tr>
-              <%= render 'field', form: f, object: :meshsize, text:
-                "Global Mesh Size", constant: DIMENSIONAL_UNITS, style:
-                "default" %>
+              <td>Number of Nodes</td>
+              <td>
+                <%= f.fields_for :job do |ff| %>
+                  <%= ff.select :machines,
+                    (1..16).map { |i| [i.to_s, i] }, {},
+                    { class: "form-control blue-select" } %>
+                <% end %>
+              </td>
+              <td></td>
             </tr>
             <tr>
-              <td>Number of Cores</td>
+              <td>Processors per Node</td>
               <td>
                 <%= f.fields_for :job do |ff| %>
                   <%= ff.select :cores,
@@ -68,6 +81,24 @@
       </div>
     </div>
     <div class="col-md-6">
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <strong>Model Parameters</strong>
+        </div>
+        <table class="table">
+          <tbody>
+            <tr>
+              <%= render 'field', form: f, object: :load, text: nil, constant:
+                FORCE_UNITS, style: "default" %>
+            </tr>
+            <tr>
+              <%= render 'field', form: f, object: :meshsize, text:
+                "Global Mesh Size", constant: DIMENSIONAL_UNITS, style:
+                "default" %>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <div class="panel panel-default">
         <div class="panel-heading">
           <strong>Material Properties</strong>

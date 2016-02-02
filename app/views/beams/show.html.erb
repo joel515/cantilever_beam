@@ -47,8 +47,9 @@
           <tr>
             <th>Solver</th>
             <th>Load (<%= unit_text(@beam, :load) %>)</th>
-            <th>Global Mesh Size (<%= unit_text(@beam, :meshsize) %>)</th>
-            <th>Number of Cores</th>
+            <th>Mesh Size (<%= unit_text(@beam, :meshsize) %>)</th>
+            <th>Nodes</th>
+            <th>CPUs/Node</th>
           </tr>
         </thead>
         <tbody>
@@ -56,6 +57,7 @@
             <td><%= @beam.job.config.capitalize %></td>
             <td><%= @beam.load %></td>
             <td><%= @beam.meshsize %></td>
+            <td><%= @beam.job.machines %></td>
             <td><%= @beam.job.cores %></td>
           </tr>
         </tbody>
