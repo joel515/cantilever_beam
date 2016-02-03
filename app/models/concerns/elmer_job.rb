@@ -719,6 +719,6 @@ module ElmerJob
     end
 
     def output_ok?(std_out)
-      File.foreach(std_out).enum_for(:grep, /error|fail/i).first.nil?
+      File.foreach(std_out).enum_for(:grep, /error/i).first.nil?
     end
 end
