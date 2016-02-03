@@ -31,6 +31,10 @@ class JobsController < ApplicationController
     end
   end
 
+  def stdout
+    render layout: false
+  end
+
   private
 
     def set_job

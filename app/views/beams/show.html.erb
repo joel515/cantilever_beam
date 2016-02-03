@@ -92,5 +92,7 @@
   <%= button(@beam, :results, text: true, size: 'btn-md') %>
 <% elsif @beam.active? || @beam.running? %>
   <%= button(@beam, :refresh, text: true, size: 'btn-md') %>
+<% elsif @beam.failed? %>
+  <%= button(@beam, :stdout,  text: true, size: 'btn-md') %>
 <% end %>
 <%= button_group(@beam, text: true, size: 'btn-md') %>

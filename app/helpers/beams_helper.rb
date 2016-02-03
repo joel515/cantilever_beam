@@ -93,6 +93,15 @@ module BeamsHelper
           "#{'disabled' * opts[:disabled].to_i}".strip,
         data: { toggle: 'tooltip', placement: 'top' },
         title: 'Kill job'
+    elsif type == :stdout
+      link_to "<span class='glyphicon glyphicon-open-file'></span> "\
+          "#{type.capitalize if opts[:text]}".html_safe,
+        stdout_job_path(beam.job),
+        class: "btn btn-ftegreen #{opts[:size]} " \
+          "#{'disabled' * opts[:disabled].to_i}".strip,
+        data: { toggle: 'tooltip', placement: 'top' },
+        title: 'View standard output',
+        target: '_blank'
     end
   end
 

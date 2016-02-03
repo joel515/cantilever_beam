@@ -160,6 +160,11 @@ class Job < ActiveRecord::Base
     job_stats
   end
 
+  def stdout
+    jobpath = Pathname.new(jobdir)
+    jobpath + (WITH_PBS ? "#{prefix}.o#{pid.split('.')[0]}" : "#{prefix}.out")
+  end
+
   private
 
     def use_mpi?
@@ -189,11 +194,9 @@ class Job < ActiveRecord::Base
 
     def check_completed_status
       configure_concern
-      jobpath = Pathname.new(jobdir)
       stress_file = result_path + "#{prefix}_stress.html"
       displ_file = result_path + "#{prefix}_displ.html"
-      std_out = jobpath + (WITH_PBS ? "#{prefix}.o#{pid.split('.')[0]}" :
-        "#{prefix}.out")
+      std_out = stdout
 
       if std_out.exist? && displ_file.exist? && stress_file.exist?
         if output_ok? std_out

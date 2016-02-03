@@ -412,7 +412,6 @@ module AnsysJob
     def generate_submit_script(args)
       jobpath = Pathname.new(jobdir)
       input_deck = Pathname.new(args[:input_deck]).basename
-      output_file = "#{prefix}.o"
       results_script = Pathname.new(args[:results_script]).basename
       submit_script = jobpath + "#{prefix}.sh"
       shell_cmd = `which bash`.strip
@@ -427,12 +426,10 @@ module AnsysJob
           f.puts "machines=`uniq -c ${PBS_NODEFILE} | " \
             "awk '{print $2 \":\" $1}' | paste -s -d ':'`"
           f.puts "cd ${PBS_O_WORKDIR}"
-          f.puts "#{ANSYS_EXE} -b -dis -machines $machines -O " \
-            "$1 -I #{input_deck}"
+          f.puts "#{ANSYS_EXE} -b -dis -machines $machines -i #{input_deck}"
         else
           f.puts "cd #{jobpath}"
-          f.puts "#{ANSYS_EXE} -b -np #{cores} -O #{output_file} -I " \
-            "#{input_deck}"
+          f.puts "#{ANSYS_EXE} -b -np #{cores} -i #{input_deck}"
         end
 
         f.puts "#{PARAVIEW_EXE} #{results_script}"
@@ -442,16 +439,10 @@ module AnsysJob
     end
 
     def output_ok?(std_out)
-      jobpath = Pathname.new(jobdir)
-      std_out = jobpath + (WITH_PBS ? "#{prefix}.o#{pid.split('.')[0]}" :
-        "#{prefix}.out")
-
       errors = nil
-      if std_out.exist?
-        File.foreach(std_out) do |line|
-          errors = line.split[5].to_i if line.include? \
-            "NUMBER OF ERROR   MESSAGES ENCOUNTERED="
-        end
+      File.foreach(std_out) do |line|
+        errors = line.split[5].to_i if line.include? \
+          "NUMBER OF ERROR   MESSAGES ENCOUNTERED="
       end
 
       !errors.nil? && errors == 0

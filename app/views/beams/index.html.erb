@@ -27,7 +27,11 @@
       <td>
         <% if beam.completed? %>
           <div class="btn-group">
-           <%= button(beam, :results, text: false, size: 'btn-xs') %>
+            <%= button(beam, :results, text: false, size: 'btn-xs') %>
+          </div>
+        <% elsif beam.failed? %>
+          <div class="btn-group">
+            <%= button(beam, :stdout,  text: false, size: 'btn-xs') %>
           </div>
         <% end %>
       </td>

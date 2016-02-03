@@ -17,6 +17,7 @@ Rails.application.routes.draw do
       put 'clean'
       get 'results'
       get 'embed'
+
     end
   end
 
@@ -24,6 +25,7 @@ Rails.application.routes.draw do
     member do
       put 'submit'
       put 'kill'
+      get 'stdout'
     end
   end
 
