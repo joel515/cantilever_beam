@@ -6,11 +6,11 @@ class Job < ActiveRecord::Base
   validates :cores,    presence: true,
                        numericality: { only_integer: true,
                                        greater_than_or_equal_to: 1,
-                                       less_than_or_equal_to: 16 }
+                                       less_than_or_equal_to: MAX_PPN }
   validates :machines, presence: true,
                        numericality: { only_integer: true,
                                        greater_than_or_equal_to: 1,
-                                       less_than_or_equal_to: 16 }
+                                       less_than_or_equal_to: MAX_NODE }
 
   require 'pathname'
   require 'nokogiri'

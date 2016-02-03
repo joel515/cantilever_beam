@@ -6,18 +6,24 @@
     SOLVERS = {
       elmer: "Elmer"
     }
+    MAX_PPN = 8
+    MAX_NODE = 1
   when :login
     WITH_PBS =  true
     SOLVERS = {
       elmer: "Elmer",
       ansys: "Ansys"
     }
+    MAX_PPN = 16
+    MAX_NODE = 16
   else
     WITH_PBS =  false
     SOLVERS = {
       elmer: "Elmer",
       ansys: "Ansys"
     }
+    MAX_PPN = 1
+    MAX_NODE = 1
   end
 
   GRAVITY = 9.80665

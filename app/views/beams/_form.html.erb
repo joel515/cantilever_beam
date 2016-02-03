@@ -59,7 +59,7 @@
               <td>
                 <%= f.fields_for :job do |ff| %>
                   <%= ff.select :machines,
-                    (1..16).map { |i| [i.to_s, i] }, {},
+                    (1..MAX_NODE).map { |i| [i.to_s, i] }, {},
                     { class: "form-control blue-select" } %>
                 <% end %>
               </td>
@@ -70,7 +70,7 @@
               <td>
                 <%= f.fields_for :job do |ff| %>
                   <%= ff.select :cores,
-                    (1..16).map { |i| [i.to_s, i] }, {},
+                    (1..MAX_PPN).map { |i| [i.to_s, i] }, {},
                     { class: "form-control blue-select" } %>
                 <% end %>
               </td>
