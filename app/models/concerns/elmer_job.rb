@@ -563,9 +563,9 @@ module ElmerJob
         f.puts "fileid = nil" if use_mpi?
         f.puts "nodeloc = nil"
         if use_mpi?
-          f.puts "(1..#{cores}).each do |i|"
+          f.puts "(1..#{cores * machines}).each do |i|"
           f.puts "  node_file_name = \"#{(jobpath + jobpath.basename).to_s + \
-            '/partitioning.' + cores.to_s + '/part.#{i}.nodes'}\""
+            '/partitioning.' + (cores * machines).to_s + '/part.#{i}.nodes'}\""
         else
           f.puts "  node_file_name = \"#{jobpath + jobpath.basename +
             'mesh.nodes'}\""
@@ -669,7 +669,7 @@ module ElmerJob
       input_deck = Pathname.new(args[:input_deck]).basename
       File.open(start_file, 'w') do |f|
         f.puts input_deck.to_s
-        f.puts cores.to_s
+        f.puts (cores * machines).to_s
       end
     end
 
@@ -690,7 +690,7 @@ module ElmerJob
 
         if WITH_PBS
           f.puts "#PBS -N #{prefix}"
-          f.puts "#PBS -l nodes=1:ppn=#{cores}"
+          f.puts "#PBS -l nodes=#{machines}:ppn=#{cores}"
           f.puts "#PBS -j oe"
           f.puts "module load openmpi/gcc/64/1.10.1"
           f.puts "module load elmer"
@@ -701,8 +701,8 @@ module ElmerJob
 
         f.puts "#{GMSH_EXE} #{geom_file} -3"
         f.puts "#{ELMERGRID_EXE} 14 2 #{mesh_file} " +
-          ("-metis #{cores} 0 " * use_mpi?.to_i) + "-autoclean"
-        f.puts "#{MPI_EXE} -np #{cores} " * use_mpi?.to_i +
+          ("-metis #{cores * machines} 0 " * use_mpi?.to_i) + "-autoclean"
+        f.puts "#{MPI_EXE} -np #{cores * machines} " * use_mpi?.to_i +
           "#{ELMERSOLVER_EXE} #{input_deck.to_s * (1 - use_mpi?.to_i)}".strip
         f.puts "#{`which ruby`.strip} #{parse_script}"
 

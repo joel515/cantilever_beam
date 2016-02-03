@@ -168,7 +168,7 @@ class Job < ActiveRecord::Base
   private
 
     def use_mpi?
-      cores > 1
+      cores * machines > 1
     end
 
     def check_process_status(pre_status)
