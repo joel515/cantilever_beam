@@ -8,6 +8,8 @@
     }
     MAX_PPN = 8
     MAX_NODE = 1
+    PARAVIEW_EXE =    "/apps/paraview/bin/pvbatch"
+    MPI_EXE =         "/usr/bin/mpirun"
   when :login
     WITH_PBS =  true
     SOLVERS = {
@@ -16,6 +18,8 @@
     }
     MAX_PPN = 16
     MAX_NODE = 16
+    PARAVIEW_EXE =    "/gpfs/home/jkopp/apps/paraview/4.4.0/bin/pvbatch"
+    MPI_EXE =         "mpirun"
   else
     WITH_PBS =  false
     SOLVERS = {
@@ -24,6 +28,8 @@
     }
     MAX_PPN = 1
     MAX_NODE = 1
+    PARAVIEW_EXE =    "pvbatch"
+    MPI_EXE =         "mpirun"
   end
 
   GRAVITY = 9.80665

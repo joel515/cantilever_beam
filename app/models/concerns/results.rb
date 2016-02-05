@@ -21,8 +21,6 @@ module Results
   # nonexistant.
   # TODO: Remove reference to job configuration below:
   def graphics_file(type=:stress)
-    jobpath = Pathname.new(job.jobdir)
-    # results_dir = jobpath + (jobpath.basename.to_s * (job.config == "elmer").to_i)
     job.configure_concern
     results_dir = job.result_path
     results_file = lambda { |f| f.exist? ? f : "" }

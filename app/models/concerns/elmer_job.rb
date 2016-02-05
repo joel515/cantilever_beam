@@ -8,22 +8,16 @@ module ElmerJob
     GMSH_EXE =        "/apps/gmsh/gmsh-2.11.0-Linux/bin/gmsh"
     ELMERGRID_EXE =   "/apps/elmer/bin/ElmerGrid"
     ELMERSOLVER_EXE = "/apps/elmer/bin/ElmerSolver"
-    PARAVIEW_EXE =    "/apps/paraview/bin/pvbatch"
-    MPI_EXE =         "/usr/bin/mpirun"
     USE_MUMPS = true
   when :login
     GMSH_EXE =        "/gpfs/apps/gmsh/gmsh-2.8.5-Linux/bin/gmsh"
     ELMERGRID_EXE =   "ElmerGrid"
     ELMERSOLVER_EXE = "ElmerSolver"
-    MPI_EXE =         "mpirun"
-    PARAVIEW_EXE =    "/gpfs/home/jkopp/apps/paraview/4.4.0/bin/pvbatch"
     USE_MUMPS = true
   else
     GMSH_EXE =        "gmsh"
     ELMERGRID_EXE =   "ElmerGrid"
     ELMERSOLVER_EXE = "ElmerSolver"
-    MPI_EXE =         "mpirun"
-    PARAVIEW_EXE =    "pvbatch"
     USE_MUMPS = false
   end
 
@@ -692,7 +686,7 @@ module ElmerJob
           f.puts "#PBS -N #{prefix}"
           f.puts "#PBS -l nodes=#{machines}:ppn=#{cores}"
           f.puts "#PBS -j oe"
-          f.puts "module load openmpi/gcc/64/1.10.1"
+          f.puts "module load openmpi/gcc/64/1.10.1" if use_mpi?
           f.puts "module load elmer"
           f.puts "cd $PBS_O_WORKDIR"
         else
@@ -712,7 +706,8 @@ module ElmerJob
           f.puts "cd #{jobpath + prefix}"
         end
 
-        f.puts "#{PARAVIEW_EXE} #{results_script}"
+        f.puts "#{MPI_EXE} -np #{cores * machines} " * use_mpi?.to_i +
+          "#{PARAVIEW_EXE} #{results_script}"
       end
 
       submit_script.exist? ? submit_script : nil

@@ -4,12 +4,10 @@ module AnsysJob
   case SERVER
   when :khaleesi
     ANSYS_EXE =       "ansys162"
-    PARAVIEW_EXE =    "/apps/paraview/bin/pvbatch"
   when :login
     ANSYS_EXE =       "/gpfs/apps/ansys/v162/ansys/bin/ansys162"
-    PARAVIEW_EXE =    "/gpfs/home/jkopp/apps/paraview/4.4.0/bin/pvbatch"
   else
-    PARAVIEW_EXE =    "pvbatch"
+    ANSYS_EXE =       "ansys162"
   end
 
   # Capture the job stats and return the data as a hash.
@@ -38,6 +36,11 @@ module AnsysJob
   end
 
   private
+
+    def displ_scale
+      (0.2 * [convert(beam, :length), convert(beam, :width), \
+        convert(beam, :height)].max / beam.displ.abs).abs
+    end
 
     # Create the following directories as job staging in the user's home.
     # $HOME/Scratch/<beam name>
@@ -133,10 +136,12 @@ module AnsysJob
         f.puts "mshape,0"
         f.puts "mshkey,1"
         f.puts "vmesh,all"
-        f.puts "cdwrite,geom,#{prefix},inp"
         f.puts "nsel,s,loc,z,0"
         f.puts "d,all,all"
-        f.puts "asel,s,loc,z,#{l}"
+
+        # Coat the outside of the mesh with shell elements that allow surface
+        # tractions.
+        f.puts "asel,s,all"
         f.puts "nsla,s,1"
         f.puts "type,2"
         f.puts "real,2"
@@ -145,7 +150,11 @@ module AnsysJob
         f.puts "csys,0"
         f.puts "esys,100"
         f.puts "esurf,"
-        f.puts "esel,s,type,,2"
+
+        # Select the shell elements at the end of the beam to apply traction.
+        f.puts "asel,s,loc,z,#{l}"
+        f.puts "nsla,s,1"
+        f.puts "esln,s,1"
         f.puts "sfe,all,2,pres,1,#{-p / w / h}"
         f.puts "allsel,all"
         f.puts "acel,,#{GRAVITY},"
@@ -184,14 +193,16 @@ module AnsysJob
 
         # The following lines of code instruct Ansys to write nodal
         # coordinates, displacements, and stresses located just on the
-        # surface of the beam to a CSV file to be read into Paraview.
+        # surface of the beam to a CSV file to be translated to a VTK
+        # unstructured grid which can then be read into Paraview.
         f.puts "asel,s,all"
         f.puts "nsla,s,1"
         f.puts "*get,nnummax,node,,num,max"
+        f.puts "*get,ncount,node,0,count"
         f.puts "*del,nmask"
         f.puts "*del,narray"
         f.puts "*dim,nmask,array,nnummax"
-        f.puts "*dim,narray,array,nnummax,7"
+        f.puts "*dim,narray,array,nnummax,8"
         f.puts "*vget,nmask(1),node,1,nsel"
         f.puts "*vmask,nmask(1)"
         f.puts "*vget,narray(1,1),node,1,loc,x"
@@ -207,11 +218,49 @@ module AnsysJob
         f.puts "*vget,narray(1,6),node,1,u,z"
         f.puts "*vmask,nmask(1)"
         f.puts "*vget,narray(1,7),node,1,s,z"
+        f.puts "*vfill,narray(1,8),ramp,1,1"
+        f.puts "esel,s,type,,2"
+        f.puts "*get,enummax,elem,,num,max"
+        f.puts "*get,ecount,elem,0,count"
+        f.puts "*del,emask"
+        f.puts "*del,earray"
+        f.puts "*dim,emask,array,enummax"
+        f.puts "*dim,earray,array,enummax,4"
+        f.puts "*vget,emask(1),elem,1,esel"
+        f.puts "*vmask,emask(1)"
+        f.puts "*vget,earray(1,1),elem,1,node,1"
+        f.puts "*vmask,emask(1)"
+        f.puts "*vget,earray(1,2),elem,1,node,2"
+        f.puts "*vmask,emask(1)"
+        f.puts "*vget,earray(1,3),elem,1,node,3"
+        f.puts "*vmask,emask(1)"
+        f.puts "*vget,earray(1,4),elem,1,node,4"
         f.puts "*cfopen,#{prefix},csv"
+        f.puts "*vwrite,ncount,ecount"
+        f.puts "%I,%I"
+        f.puts "*vwrite,'STARTSTRESS'"
+        f.puts "%C"
         f.puts "*vmask,nmask(1)"
-        f.puts "*vwrite,narray(1,1),narray(1,2),narray(1,3),narray(1,4)," \
-          "narray(1,5),narray(1,6),narray(1,7)"
+        f.puts "*vwrite,narray(1,7)"
+        f.puts "%G"
+        f.puts "*vwrite,'STARTDISPLACEMENT'"
+        f.puts "%C"
+        f.puts "*vmask,nmask(1)"
+        f.puts "*vwrite,narray(1,4),narray(1,5),narray(1,6)"
+        f.puts "%G,%G,%G"
+        f.puts "*vwrite,'STARTNODES'"
+        f.puts "%C"
+        f.puts "*vmask,nmask(1)"
+        f.puts "*vwrite,narray(1,8),narray(1,1),narray(1,2),narray(1,3)," \
+          "narray(1,4),narray(1,5),narray(1,6)"
         f.puts "%G,%G,%G,%G,%G,%G,%G"
+        f.puts "*vwrite,'STARTELEMENTS'"
+        f.puts "%C"
+        f.puts "*vmask,emask(1)"
+        f.puts "*vwrite,earray(1,1),earray(1,2),earray(1,3),earray(1,4)"
+        f.puts "%I,%I,%I,%I"
+        f.puts "*vwrite,'EOF'"
+        f.puts "%C"
         f.puts "*cfclos"
         f.puts "fini"
       end
@@ -220,20 +269,19 @@ module AnsysJob
     end
 
     # Write the Python script used to generate visual contoured plots for
-    # post-processing using open source Paraview.  The script imports point
-    # data in the form of exterior nodal coordinates from the CSV file
-    # generated in Ansys.  Geometry is created using a Delaunay tesselation
-    # algorithm.  Contours are then plotted on the resulting geometry.  The
-    # script then creates a plane to represent the wall on one side, and an
-    # arrow to represent the load.  A WebGL file is finally exported.
-    # (Note: Paraview must be built using OSMesa in order to render on the
-    # cluster off screen.)
+    # post-processing using open source Paraview.  The script reads in VTK
+    # unstructured grid geometry generated using the csv2vtu ruby script in
+    # the lib directory of this rails app.  Contours are then plotted on the
+    # imported geometry.  The script then creates a plane to represent the wall
+    # on one side, and an arrow to represent the load.  A WebGL file is finally
+    # exported.  (Note: Paraview must be built using OSMesa in order to render
+    # on the cluster off screen.)
     def generate_results_script
       # TODO: Give a warning when beam reaches nonlinear territory.
       # TODO: At some point create a second job to generate results.  Then FEA
       #       results can be used for scaling.
       jobpath = Pathname.new(jobdir)
-      csv_file = jobpath + "#{prefix}.csv"
+      vtu_file = jobpath + "#{prefix}.vtu"
       paraview_script = jobpath + "#{prefix}.py"
       webgl_stress_file = jobpath + "#{prefix}_stress.webgl"
       webgl_displ_file = jobpath + "#{prefix}_displ.webgl"
@@ -267,7 +315,6 @@ module AnsysJob
 
       # TODO: Use FEA displacement results for scale.
 
-      displ_scale = (0.2 * [l, w, h].max / displ_max_abs).abs
       plane_scale = 3.0
       arrow_scale = 0.2 * [l, w, h].max
 
@@ -276,23 +323,18 @@ module AnsysJob
         f.puts "from paraview.simple import *"
         f.puts "paraview.simple._DisableFirstRenderCameraReset()"
 
-        f.puts "beamcsv = CSVReader(FileName=[\"#{csv_file}\"])"
-        f.puts "beamcsv.HaveHeaders = 0"
+        f.puts "beamvtu = XMLUnstructuredGridReader(FileName=[\"#{vtu_file}\"])"
+        f.puts "beamvtu.PointArrayStatus = ['stress_zz', 'displacement']"
+
         f.puts "renderView1 = GetActiveViewOrCreate('RenderView')"
-        f.puts "tableToPoints1 = TableToPoints(Input=beamcsv)"
-        f.puts "tableToPoints1.XColumn = 'Field 0'"
-        f.puts "tableToPoints1.YColumn = 'Field 1'"
-        f.puts "tableToPoints1.ZColumn = 'Field 2'"
-        f.puts "calculator1 = Calculator(Input=tableToPoints1)"
-        f.puts "calculator1.CoordinateResults = 1"
-        f.puts "calculator1.Function = 'coords + #{displ_scale}*"\
-          "(Field 3*iHat + Field 4*jHat + Field 5*kHat)'"
-        f.puts "delaunay3D1 = Delaunay3D(Input=calculator1)"
 
-        f.puts "calculator2 = Calculator(Input=delaunay3D1)"
-        f.puts "calculator2.ResultArrayName = 'stress_zz (#{stress_units})'"
-        f.puts "calculator2.Function = 'Field 6/#{stress_conversion}'"
+        f.puts "calculator1 = Calculator(Input=beamvtu)"
 
+        # Scale stress results using the calculator.
+        f.puts "calculator1.ResultArrayName = 'stress_zz (#{stress_units})'"
+        f.puts "calculator1.Function = 'stress_zz/#{stress_conversion}'"
+
+        # Get and modify the stress color map.
         f.puts "stresszz#{stress_units}LUT = " \
           "GetColorTransferFunction('stresszz#{stress_units}')"
         f.puts "stresszz#{stress_units}LUT.RGBPoints = [-#{stress_max}, " \
@@ -302,18 +344,23 @@ module AnsysJob
         f.puts "stresszz#{stress_units}LUT.ApplyPreset('Cool to Warm " \
           "(Extended)', True)"
 
-        f.puts "calculator2Display = Show(calculator2, renderView1)"
-        f.puts "calculator2Display.ColorArrayName = ['POINTS', 'stress_zz " \
+        # Show the calculated results on the warped geometry
+        f.puts "calculator1Display = Show(calculator1, renderView1)"
+        f.puts "calculator1Display.ColorArrayName = ['POINTS', 'stress_zz " \
           "(#{stress_units})']"
-        f.puts "calculator2Display.LookupTable = stresszz#{stress_units}LUT"
-        f.puts "calculator2Display.ScalarOpacityUnitDistance = " \
-          "0.027201157402185396"
-        f.puts "calculator2Display.Scale = [#{view_scale}, #{view_scale}, "\
+        f.puts "calculator1Display.LookupTable = stresszz#{stress_units}LUT"
+        f.puts "calculator1Display.ScalarOpacityUnitDistance = " \
+          "0.044238274071335064"
+        f.puts "calculator1Display.Scale = [#{view_scale}, #{view_scale}, "\
           "#{view_scale}]"
+        f.puts "Hide(beamvtu, renderView1)"
 
-        f.puts "calculator2Display.SetScalarBarVisibility(renderView1, True)"
+        # Set up and show the legend.
+        f.puts "calculator1Display.SetScalarBarVisibility(renderView1, True)"
         f.puts "stresszz#{stress_units}LUT.RescaleTransferFunction" \
           "(-#{stress_max}, #{stress_max})"
+
+        # Get and modify the stress opacity map.
         f.puts "stresszz#{stress_units}PWF = " \
           "GetOpacityTransferFunction('stresszz#{stress_units}')"
         f.puts "stresszz#{stress_units}PWF.Points = [-#{stress_max}, 0.0, " \
@@ -362,19 +409,23 @@ module AnsysJob
 
         f.puts "ExportView(\"#{webgl_stress_file}\", view=renderView1)"
 
-        f.puts "SetActiveSource(calculator2)"
-        f.puts "calculator2Display.SetScalarBarVisibility(renderView1, False)"
+        f.puts "SetActiveSource(calculator1)"
+        f.puts "calculator1Display.SetScalarBarVisibility(renderView1, False)"
         f.puts "Render()"
 
-        f.puts "calculator2.ResultArrayName = 'displacement_Y " \
+        # Modify the calculator to scale displacement.
+        f.puts "calculator1.ResultArrayName = 'displacement_Y " \
           "(#{displ_units})'"
-        f.puts "calculator2.Function = 'Field 4/#{displ_conversion}'"
+        f.puts "calculator1.Function = 'displacement_Y/#{displ_conversion}'"
 
-        f.puts "ColorBy(calculator2Display, ('POINTS', 'displacement_Y " \
+        # Set the scalar coloring.
+        f.puts "ColorBy(calculator1Display, ('POINTS', 'displacement_Y " \
           "(#{displ_units})'))"
 
-        f.puts "calculator2Display.SetScalarBarVisibility(renderView1, True)"
+        # Now reshow the legend.
+        f.puts "calculator1Display.SetScalarBarVisibility(renderView1, True)"
 
+        # Get the color transfer function for vertical displacement.
         f.puts "displacementY#{displ_units}LUT = " \
           "GetColorTransferFunction('displacementY#{displ_units}')"
         f.puts "displacementY#{displ_units}LUT.RGBPoints = [#{displ_min}, " \
@@ -385,18 +436,21 @@ module AnsysJob
         f.puts "displacementY#{displ_units}LUT.ApplyPreset('Cool to Warm " \
           "(Extended)', True)"
 
+        # Get the opacity transfer function for vertical displacement.
         f.puts "displacementY#{displ_units}PWF = " \
           "GetOpacityTransferFunction('displacementY#{displ_units}')"
         f.puts "displacementY#{displ_units}PWF.Points = [#{displ_min}, 0.0, " \
           "0.5, 0.0, #{displ_max}, 1.0, 0.5, 0.0]"
         f.puts "displacementY#{displ_units}PWF.ScalarRangeInitialized = 1"
 
+        # Position the legend on the bottom of the window.
         f.puts "sb = GetScalarBar(displacementY#{displ_units}LUT, " \
           "GetActiveView())"
         f.puts "sb.Orientation = 'Horizontal'"
         f.puts "sb.Position = [0.3, 0.05]"
         f.puts "sb.ComponentTitle = ''"
 
+        # Reset the view to fit data.
         f.puts "renderView1.ResetCamera()"
 
         f.puts "ExportView(\"#{webgl_displ_file}\", view=renderView1)"
@@ -415,6 +469,10 @@ module AnsysJob
       results_script = Pathname.new(args[:results_script]).basename
       submit_script = jobpath + "#{prefix}.sh"
       shell_cmd = `which bash`.strip
+      ruby_cmd = `which ruby`.strip
+      current_directory = `pwd`.strip
+      lib_directory = Pathname.new(current_directory) + "lib"
+      csv2vtu_script = lib_directory + "csv2vtu.rb"
       File.open(submit_script, 'w') do |f|
         f.puts "#!#{shell_cmd}"
 
@@ -423,6 +481,7 @@ module AnsysJob
           f.puts "#PBS -N #{prefix}"
           f.puts "#PBS -l nodes=#{machines}:ppn=#{cores}"
           f.puts "#PBS -j oe"
+          f.puts "module load openmpi/gcc/64/1.10.1"
           f.puts "machines=`uniq -c ${PBS_NODEFILE} | " \
             "awk '{print $2 \":\" $1}' | paste -s -d ':'`"
           f.puts "cd ${PBS_O_WORKDIR}"
@@ -432,7 +491,11 @@ module AnsysJob
           f.puts "#{ANSYS_EXE} -b -np #{cores} -i #{input_deck}"
         end
 
-        f.puts "#{PARAVIEW_EXE} #{results_script}"
+        f.puts "#{ruby_cmd} #{csv2vtu_script} \"#{jobpath}\" \"#{prefix}\" " \
+          "\"#{displ_scale}\""
+
+        f.puts "#{MPI_EXE} -np #{cores * machines} " * use_mpi?.to_i +
+          "#{PARAVIEW_EXE} #{results_script}"
       end
 
       submit_script.exist? ? submit_script : nil
